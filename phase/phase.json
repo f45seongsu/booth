@@ -1,0 +1,50 @@
+[
+  {
+    "name": "VEGAS",
+    "file": "vegas.png",
+    "match": [
+      "vegas"
+    ],
+    "dark": false
+  },
+  {
+    "name": "ABACUS",
+    "file": "abacus.png",
+    "match": [
+      "abacus"
+    ],
+    "dark": false
+  },
+  {
+    "name": "TRIPLE DOUBLE",
+    "file": "triple-double.png",
+    "match": [
+      "triple"
+    ],
+    "dark": false
+  },
+  {
+    "name": "FUSION",
+    "file": "fusion.png",
+    "match": [
+      "fusion"
+    ],
+    "dark": true
+  },
+  {
+    "name": "QUARTERBACKS",
+    "file": "quarterbacks.png",
+    "match": [
+      "quarter"
+    ],
+    "dark": false
+  },
+  {
+    "name": "PHOENIX",
+    "file": "phoenix.png",
+    "match": [
+      "phoenix"
+    ],
+    "dark": true
+  }
+]

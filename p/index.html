@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ko"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>F45 성수 포토부스</title>
+<meta name="robots" content="noindex,nofollow">
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#001A4D;--red:#E31B23;--yellow:#FFD84A;--cream:#FFF6E6;--ink:#111}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--cream);color:var(--ink);font-family:-apple-system,"Apple SD Gothic Neo","Noto Sans KR",Arial,sans-serif}
+body{padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+.wrap{max-width:520px;margin:0 auto;padding:22px 18px 40px}
+.top{display:flex;justify-content:space-between;align-items:center}
+.logo{font-family:'Black Han Sans',sans-serif;font-size:26px;color:var(--navy);line-height:1}
+.logo small{display:block;font-family:Arial;font-weight:900;font-size:10px;letter-spacing:3px;margin-top:4px}
+.tag{background:var(--yellow);border:3px solid var(--ink);box-shadow:3px 3px 0 var(--ink);font-weight:900;font-size:12px;padding:5px 10px;transform:rotate(3deg)}
+h1{font-family:'Black Han Sans',sans-serif;font-weight:400;font-size:44px;line-height:.95;color:var(--navy);margin:22px 0 6px}
+h1 span{color:var(--red)}
+.sub{font-weight:700;margin:0 0 18px;opacity:.75}
+.card{background:#fff;border:4px solid var(--ink);box-shadow:8px 8px 0 var(--ink);padding:10px;border-radius:6px}
+.card img,.card video{display:block;width:100%;height:auto}
+.btns{display:grid;gap:12px;margin:22px 0}
+.btn{display:block;text-align:center;border:4px solid var(--ink);box-shadow:5px 5px 0 var(--ink);background:var(--red);color:#fff;font-weight:900;font-size:18px;padding:15px;border-radius:10px;text-decoration:none;cursor:pointer}
+.btn.alt{background:var(--yellow);color:var(--ink)}
+.btn:active{transform:translate(3px,3px);box-shadow:2px 2px 0 var(--ink)}
+.tip{font-size:13px;opacity:.7;text-align:center;line-height:1.5}
+.sec{margin-top:30px}
+.sec h2{font-family:'Black Han Sans',sans-serif;font-weight:400;font-size:26px;color:var(--navy);margin:0 0 10px}
+.err{text-align:center;padding:60px 10px;font-weight:800;line-height:1.6}
+footer{text-align:center;font-weight:900;font-size:12px;letter-spacing:1px;color:var(--navy);margin-top:30px}
+</style></head><body><div class="wrap">
+<div class="top"><div class="logo">F45 SEONGSU<small>PHOTO BOOTH</small></div><div class="tag">TODAY'S SNAP ★</div></div>
+<div id="app"></div>
+<footer>F45 SEONGSU ★ TEAM TRAINING · LIFE CHANGING</footer>
+</div>
+<script>
+const BASE='https://mvgbwsbvngdnxdndwimb.supabase.co/storage/v1/object/public/booth/';
+const q=new URLSearchParams(location.search),id=q.get('i'),mExt=q.get('m')||(q.get('v')==='1'?'webm':''),bExt=q.get('b')||'';
+const app=document.getElementById('app');
+const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent);
+if(!id||!/^[\w\-\/.]+$/.test(id)){app.innerHTML='<p class="err">사진을 찾을 수 없어요.<br>문자의 링크를 다시 눌러주세요.</p>'}
+else{
+  const ok=x=>/^(mp4|webm)$/.test(x);
+  const img=BASE+id+'.jpg',vid=ok(mExt)?BASE+id+'.'+mExt:'',boom=ok(bExt)?BASE+id+'_b.'+bExt:'',date=(id.split('/')[0]||'').replace(/-/g,'.');
+  app.innerHTML=`<h1>오늘도<br><span>수고했어요!</span></h1><p class="sub">${date} · F45 성수에서 찍은 사진</p>
+  <div class="card"><img id="photo" src="${img}" alt="포토부스 사진"></div>
+  <div class="btns"><button class="btn" id="saveBtn">사진 저장하기</button><button class="btn alt" id="shareBtn">공유하기</button></div>
+  <p class="tip">${isIOS?'저장이 안 되면 사진을 <b>길게 눌러</b> "사진 앱에 저장"을 선택하세요.':'저장이 안 되면 사진을 <b>길게 눌러</b> 이미지 저장을 선택하세요.'}</p>
+  ${boom?`<div class="sec"><h2>BOOMERANG</h2><div class="card"><video src="${boom}" autoplay muted loop playsinline></video></div><a class="btn alt" style="margin-top:14px" href="${boom}" download>부메랑 저장하기</a></div>`:''}
+  ${vid?`<div class="sec"><h2>MAKING FILM</h2><div class="card"><video src="${vid}" controls playsinline preload="metadata"></video></div><a class="btn alt" style="margin-top:14px" href="${vid}" download>메이킹 영상 저장하기</a></div>`:''}`;
+  document.getElementById('photo').onerror=()=>{app.innerHTML='<p class="err">사진이 만료됐거나 아직 준비 중이에요.<br>잠시 후 다시 열어주세요.</p>'};
+  const getFile=async()=>{const r=await fetch(img);const b=await r.blob();return new File([b],'F45_SEONGSU_'+id.replace(/\W/g,'_')+'.jpg',{type:'image/jpeg'})};
+  document.getElementById('saveBtn').onclick=async()=>{
+    try{const f=await getFile();
+      if(navigator.canShare&&navigator.canShare({files:[f]})&&isIOS){await navigator.share({files:[f]});return}
+      const a=document.createElement('a');a.href=URL.createObjectURL(f);a.download=f.name;document.body.appendChild(a);a.click();a.remove();
+    }catch(e){window.open(img,'_blank')}
+  };
+  document.getElementById('shareBtn').onclick=async()=>{
+    try{const f=await getFile();
+      if(navigator.canShare&&navigator.canShare({files:[f]}))await navigator.share({files:[f],title:'F45 성수 포토부스'});
+      else if(navigator.share)await navigator.share({url:location.href,title:'F45 성수 포토부스'});
+      else{await navigator.clipboard.writeText(location.href);alert('링크를 복사했어요')}
+    }catch(e){}
+  };
+}
+</script></body></html>
