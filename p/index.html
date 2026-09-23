@@ -42,13 +42,13 @@ if(!id||!/^[\w\-\/.]+$/.test(id)){app.innerHTML='<p class="err">사진을 찾을
 else{
   const ok=x=>/^(mp4|webm)$/.test(x);
   const img=BASE+id+'.jpg',vid=ok(mExt)?BASE+id+'.'+mExt:'',boom=ok(bExt)?BASE+id+'_b.'+bExt:'',date=(id.split('/')[0]||'').replace(/-/g,'.');
-  app.innerHTML=`<h1>오늘도<br><span>수고했어요!</span></h1><p class="sub">${date} · F45 성수에서 찍은 사진</p>
+  app.innerHTML=`<h1>오늘도<br><span>수고했어요!</span></h1><p class="sub">${date} · F45 성수에서 찍은 사진<br><b style="color:#E31B23">링크는 2일 후 사라져요. 지금 저장해두세요!</b></p>
   <div class="card"><img id="photo" src="${img}" alt="포토부스 사진"></div>
   <div class="btns"><button class="btn" id="saveBtn">사진 저장하기</button><button class="btn alt" id="shareBtn">공유하기</button></div>
   <p class="tip">${isIOS?'저장이 안 되면 사진을 <b>길게 눌러</b> "사진 앱에 저장"을 선택하세요.':'저장이 안 되면 사진을 <b>길게 눌러</b> 이미지 저장을 선택하세요.'}</p>
   ${boom?`<div class="sec"><h2>BOOMERANG</h2><div class="card"><video src="${boom}" autoplay muted loop playsinline></video></div><a class="btn alt" style="margin-top:14px" href="${boom}" download>부메랑 저장하기</a></div>`:''}
   ${vid?`<div class="sec"><h2>MAKING FILM</h2><div class="card"><video src="${vid}" controls playsinline preload="metadata"></video></div><a class="btn alt" style="margin-top:14px" href="${vid}" download>메이킹 영상 저장하기</a></div>`:''}`;
-  document.getElementById('photo').onerror=()=>{app.innerHTML='<p class="err">사진이 만료됐거나 아직 준비 중이에요.<br>잠시 후 다시 열어주세요.</p>'};
+  document.getElementById('photo').onerror=()=>{app.innerHTML='<p class="err">보관 기간(2일)이 지나 링크가 만료됐어요.<br>사진이 필요하면 F45 성수 카운터에 말씀해주세요 :)</p>'};
   const getFile=async()=>{const r=await fetch(img);const b=await r.blob();return new File([b],'F45_SEONGSU_'+id.replace(/\W/g,'_')+'.jpg',{type:'image/jpeg'})};
   document.getElementById('saveBtn').onclick=async()=>{
     try{const f=await getFile();
