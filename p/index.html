@@ -28,6 +28,7 @@ h1 span{color:var(--red)}
 .sec h2{font-family:'Black Han Sans',sans-serif;font-weight:400;font-size:26px;color:var(--navy);margin:0 0 10px}
 
 .inapp{background:#111;color:#fff;border-radius:10px;padding:12px 14px;font-weight:700;font-size:14px;line-height:1.5;margin-bottom:14px}
+.snd{position:absolute;right:18px;bottom:18px;border:3px solid var(--ink);background:var(--yellow);font-weight:900;font-size:14px;padding:8px 12px;border-radius:999px;box-shadow:3px 3px 0 var(--ink)}
 .err{text-align:center;padding:60px 10px;font-weight:800;line-height:1.6}
 footer{text-align:center;font-weight:900;font-size:12px;letter-spacing:1px;color:var(--navy);margin-top:30px}
 </style></head><body><div class="wrap">
@@ -55,7 +56,7 @@ else{
   <div class="card"><img id="photo" src="${img}" alt="포토부스 사진"></div>
   <div class="btns"><button class="btn" id="saveBtn">사진 저장하기</button><button class="btn alt" id="shareBtn">공유하기</button></div>
   <p class="tip">${isIOS?'저장이 안 되면 사진을 <b>길게 눌러</b> "사진 앱에 저장"을 선택하세요.':'저장이 안 되면 사진을 <b>길게 눌러</b> 이미지 저장을 선택하세요.'}</p>
-  ${vid?`<div class="sec"><h2>MOVING 4-CUT ★</h2><div class="card"><video src="${vid}" autoplay muted loop playsinline></video></div><a class="btn alt" style="margin-top:14px" href="${vid}?download=${encodeURIComponent('F45_SEONGSU_MOVING.'+mExt)}">움직이는 네컷 저장하기</a></div>`:''}
+  ${vid?`<div class="sec"><h2>MOVING 4-CUT ★</h2><div class="card" style="position:relative"><video id="mv" src="${vid}" autoplay muted loop playsinline></video><button id="snd" class="snd" onclick="const v=document.getElementById('mv');v.muted=!v.muted;if(!v.muted){v.currentTime=0;v.play()}this.textContent=v.muted?'🔇 소리 켜기':'🔊 소리 끄기'">🔇 소리 켜기</button></div><a class="btn alt" style="margin-top:14px" href="${vid}?download=${encodeURIComponent('F45_SEONGSU_MOVING.'+mExt)}">움직이는 네컷 저장하기</a></div>`:''}
   ${boom?`<div class="sec"><h2>BOOMERANG</h2><div class="card"><video src="${boom}" autoplay muted loop playsinline></video></div><a class="btn alt" style="margin-top:14px" href="${boom}?download=${encodeURIComponent('F45_SEONGSU_BOOMERANG.'+bExt)}">부메랑 저장하기</a></div>`:''}`;
   document.getElementById('photo').onerror=()=>{app.innerHTML='<p class="err">보관 기간(2일)이 지나 링크가 만료됐어요.<br>사진이 필요하면 F45 성수 카운터에 말씀해주세요 :)</p>'};
   const getFile=async()=>{const r=await fetch(img);const b=await r.blob();return new File([b],'F45_SEONGSU_'+id.replace(/\W/g,'_')+'.jpg',{type:'image/jpeg'})};
