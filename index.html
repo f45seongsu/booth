@@ -2864,4 +2864,37 @@ function randomizeWelcomeCopy(){
 var _goBeforeWelcomeCopy=go;
 go=function(id){ if(id==='welcome') randomizeWelcomeCopy(); return _goBeforeWelcomeCopy.apply(this,arguments); };
 randomizeWelcomeCopy();
+
+/* ===== 벽돌이 포즈 랜덤 (welcome / end) — bears/bear_XX.webp ===== */
+var BEAR_POSES=[];
+(function(){for(var i=1;i<=16;i++)BEAR_POSES.push('bears/bear_'+(i<10?'0':'')+i+'.webp');})();
+var _bearLast={};
+function pickBearPose(slot){
+  if(!BEAR_POSES.length) return null;
+  var i; do{ i=Math.floor(Math.random()*BEAR_POSES.length); }while(BEAR_POSES.length>2 && (i===_bearLast.hero || i===_bearLast.end));
+  _bearLast[slot]=i; return BEAR_POSES[i];
+}
+function randomizeBear(sel,slot){
+  try{
+    var img=document.querySelector(sel); if(!img) return;
+    if(!img.dataset.origSrc) img.dataset.origSrc=img.src;
+    var src=pickBearPose(slot); if(!src) return;
+    var pre=new Image();
+    pre.onload=function(){ img.src=src; };
+    pre.onerror=function(){ img.src=img.dataset.origSrc; };
+    pre.src=src;
+  }catch(e){}
+}
+(function(){ try{
+  var st=document.createElement('style');
+  st.textContent='#welcome .bearHero,#end .endBear{object-fit:contain}';
+  document.head.appendChild(st);
+}catch(e){} })();
+var _goBeforeBear=go;
+go=function(id){
+  if(id==='welcome') randomizeBear('#welcome .bearHero','hero');
+  if(id==='end') randomizeBear('#end .endBear','end');
+  return _goBeforeBear.apply(this,arguments);
+};
+randomizeBear('#welcome .bearHero','hero');
 </script></html>
