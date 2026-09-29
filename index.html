@@ -2897,4 +2897,126 @@ go=function(id){
   return _goBeforeBear.apply(this,arguments);
 };
 randomizeBear('#welcome .bearHero','hero');
+
+/* ===== WHO 화면 좌우 분할 + 번호입력 크게 + 시작문구 크게 (2026-09-29) ===== */
+(function(){ try{
+  var css=`
+  #welcome .welcomeCopy .sub{font-size:clamp(22px,4.2vw,44px)!important;line-height:1.45!important;font-weight:800!important;max-width:none!important;margin:3vh auto!important;word-break:keep-all}
+  #welcome .welcomeCopy .sub b{padding:0 .3em}
+  #who .panel>.sub{font-size:clamp(18px,2.8vw,30px)!important;font-weight:800;margin:0 0 1.4vh!important}
+  #who .workoutTimeRow{display:none!important}
+  #who .whoCols{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:minmax(0,36%) minmax(0,1fr);gap:1.6vw}
+  #who .whoTimes,#who .whoPeople{min-height:0;display:flex;flex-direction:column}
+  #who .whoColHead{font-family:var(--gotham),'Arial Black',sans-serif;font-weight:900;font-size:clamp(14px,2vw,22px);letter-spacing:1px;margin:0 0 1vh;color:var(--navy)}
+  #who #timeChips{flex:1 1 auto;min-height:0;display:flex!important;flex-direction:column!important;gap:1vh!important;overflow-y:auto!important;overflow-x:hidden!important;padding:.3rem .5rem .6rem .2rem!important;margin:0!important}
+  #who #timeChips .timeChip{flex:0 0 auto!important;width:100%!important;min-height:clamp(64px,8.5vh,110px)!important;border-radius:1rem!important;padding:.4rem 1rem!important;display:flex!important;align-items:center!important;justify-content:space-between!important;gap:.4rem;text-align:left;font-size:clamp(16px,2.4vw,26px)!important}
+  #who #timeChips .timeChip .t{font-size:clamp(26px,5vw,52px);line-height:1;letter-spacing:-1px}
+  #who #timeChips .timeChip .ap{font-size:clamp(13px,2vw,22px);margin-left:.25em;opacity:.8}
+  #who #timeChips .timeChip .n{font-family:inherit;font-size:clamp(12px,1.8vw,20px);font-weight:900;background:var(--yellow);color:#111;border:.12rem solid #111;border-radius:999px;padding:.15em .6em;white-space:nowrap}
+  #who #timeChips .timeChip.all .t{font-size:clamp(22px,3.8vw,40px)}
+  #who .whoPeople #rosterStatus{margin:0 0 .8vh}
+  #who #memberGrid{grid-template-columns:repeat(2,1fr)!important;gap:1vh 1vw!important}
+  #who #memberGrid .member{min-height:clamp(64px,8.5vh,110px)!important;padding:.6rem 1rem!important}
+  #who #memberGrid .member b{font-size:clamp(20px,3.6vw,38px)!important;padding-right:2.2rem!important}
+  #who #memberGrid .member small{font-size:clamp(11px,1.6vw,17px)!important}
+  #who #memberGrid .member .dot{width:26px!important;height:26px!important;font-size:15px!important;top:8px!important;right:8px!important}
+  #who .pgBtn{width:4.4rem!important;height:4.4rem!important;font-size:1.4rem!important}
+  #who #pgInfo{font-size:clamp(16px,2.2vw,24px)}
+  #who .addFriend{font-size:clamp(18px,2.8vw,30px)!important;padding:.7em 1em!important}
+  /* 번호 입력: 화면 위쪽 큰 팝업 (키보드에 안 가리게) */
+  #who{overflow-x:hidden}
+  #friendBackdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:900;display:none}
+  #friendBackdrop.on{display:block}
+  #who #friendForm.open{position:fixed!important;left:50%!important;right:auto!important;width:min(92vw,760px)!important;box-sizing:border-box!important;transform:translateX(-50%)!important;top:2vh!important;z-index:901!important;max-height:none!important;overflow:visible!important;display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:1.6vh!important;padding:3vh 4vw!important;margin:0!important;background:#FFF6E6;border:.25rem solid #111;border-radius:1.4rem;box-shadow:.6rem .6rem 0 #111}
+  #who #friendForm.open>*{min-width:0!important;width:100%!important;box-sizing:border-box!important;grid-column:1/-1!important}
+  #who #friendForm .ffTitle{display:none}
+  #who #friendForm.open .ffTitle{display:flex;justify-content:space-between;align-items:center;font-family:var(--gotham),'Arial Black',sans-serif;font-weight:900;font-size:clamp(22px,4vw,40px);color:var(--navy)}
+  #who #friendForm .ffClose{border:.18rem solid #111;background:#fff;border-radius:50%;width:3.2em;height:3.2em;font-size:clamp(14px,2vw,20px);font-weight:900;box-shadow:.2rem .2rem 0 #111}
+  #who #friendForm.open input#friendName,#who #friendForm.open input#friendPhone{min-height:clamp(72px,9vh,110px)!important;font-size:clamp(26px,5vw,52px)!important;font-weight:800;padding:.2em .6em!important;border-width:.22rem!important;border-radius:1rem!important}
+  #who #friendForm.open input#friendPhone{letter-spacing:2px;font-family:var(--gotham),'Arial Black',sans-serif}
+  #who #friendForm.open .consent{font-size:clamp(16px,2.6vw,26px)!important;padding:1em!important;order:3}
+  #who #friendForm.open .consent input{width:2.2em!important;height:2.2em!important}
+  #who #friendForm.open #friendAddBtn{order:4;min-height:clamp(72px,9vh,110px)!important;font-size:clamp(24px,4.4vw,44px)!important}
+  @media (max-width:600px){
+    #who .whoCols{grid-template-columns:minmax(0,40%) minmax(0,1fr);gap:8px}
+    #who #memberGrid{grid-template-columns:1fr!important}
+    #who #timeChips .timeChip{padding:.3rem .6rem!important;flex-wrap:wrap}
+    #who .addFriend{font-size:15px!important;white-space:nowrap;padding:.6em .7em!important}
+    #who #shootBtn{white-space:nowrap;font-size:16px!important}
+  }`;
+  var st=document.createElement('style');st.id='whoSplitCss';st.textContent=css;document.head.appendChild(st);
+}catch(e){console.warn('who css',e)} })();
+
+function hm24FromLabel(txt){var m=String(txt||'').match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);if(!m)return '';var h=+m[1]%12;if(/PM/i.test(m[3]))h+=12;return String(h).padStart(2,'0')+':'+m[2]}
+function decorateTimeChips(){
+  try{
+    var box=document.getElementById('timeChips');if(!box)return;
+    var members=[].slice.call(document.querySelectorAll('#memberGrid .member'));
+    [].slice.call(box.querySelectorAll('.timeChip')).forEach(function(b){
+      var raw=b.dataset.label||b.textContent.trim();b.dataset.label=raw;
+      var hm=hm24FromLabel(raw);
+      if(!hm){b.classList.add('all');b.innerHTML='<span class="t">'+(raw==='선택 안 함'?'전체':raw)+'</span>';return}
+      var m=raw.match(/(\d{1,2}:\d{2})\s*(AM|PM)/i);
+      var n=members.filter(function(x){return (x.dataset.times||'').split(',').indexOf(hm)>=0}).length;
+      b.innerHTML='<span><span class="t">'+m[1]+'</span><span class="ap">'+m[2].toUpperCase()+'</span></span>'+(n?'<span class="n">'+n+'명</span>':'');
+    });
+  }catch(e){}
+}
+function buildWhoSplit(){
+  try{
+    var who=document.getElementById('who');if(!who||who.querySelector('.whoCols'))return;
+    var chips=document.getElementById('timeChips'),grid=document.getElementById('memberGrid');if(!chips||!grid)return;
+    var status=document.getElementById('rosterStatus'),pager=document.getElementById('memberPager');
+    var cols=document.createElement('div');cols.className='whoCols';
+    var L=document.createElement('div');L.className='whoTimes';L.innerHTML='<div class="whoColHead">① 운동 시간</div>';
+    var R=document.createElement('div');R.className='whoPeople';R.innerHTML='<div class="whoColHead">② 같이 찍을 사람</div>';
+    chips.parentElement.insertBefore(cols,chips);
+    L.appendChild(chips);
+    if(status)R.appendChild(status);R.appendChild(grid);if(pager)R.appendChild(pager);
+    cols.appendChild(L);cols.appendChild(R);
+    var sub=who.querySelector('.panel>.sub');if(sub)sub.innerHTML='시간 고르고, 같이 찍을 사람을 눌러주세요. <b>여러 명 OK!</b>';
+    // 번호 입력 팝업
+    var ff=document.getElementById('friendForm');
+    if(ff&&!ff.querySelector('.ffTitle')){
+      var t=document.createElement('div');t.className='ffTitle';t.innerHTML='<span>휴대폰 번호로 추가</span><button type="button" class="ffClose" aria-label="닫기">✕</button>';
+      ff.insertBefore(t,ff.firstChild);t.querySelector('.ffClose').onclick=closeFriendForm;
+      var bd=document.createElement('div');bd.id='friendBackdrop';bd.onclick=closeFriendForm;ff.parentElement.insertBefore(bd,ff);
+      var ph=document.getElementById('friendPhone');
+      if(ph){ph.setAttribute('type','tel');ph.setAttribute('autocomplete','off');ph.placeholder='010-0000-0000';
+        ph.addEventListener('input',function(){var d=ph.value.replace(/\D/g,'').slice(0,11);ph.value=d.length<4?d:d.length<8?d.slice(0,3)+'-'+d.slice(3):d.slice(0,3)+'-'+d.slice(3,d.length-4)+'-'+d.slice(-4);validateFriendForm()});}
+      var nm=document.getElementById('friendName');if(nm)nm.placeholder='이름 (선택)';
+    }
+    var af=who.querySelector('.addFriend');if(af)af.textContent='+ 번호로 직접 추가';
+    decorateTimeChips();
+    if(typeof refreshMembers==='function')refreshMembers(true);
+  }catch(e){console.warn('who split',e)}
+}
+function closeFriendForm(){
+  var ff=document.getElementById('friendForm');if(ff)ff.classList.remove('open');
+  var b=document.querySelector('#who .addFriend');if(b)b.classList.remove('open');
+  var bd=document.getElementById('friendBackdrop');if(bd)bd.classList.remove('on');
+  try{document.activeElement&&document.activeElement.blur()}catch(e){}
+}
+var _toggleFriendFormBase=toggleFriendForm;
+toggleFriendForm=function(btn){
+  _toggleFriendFormBase(btn);
+  var open=document.getElementById('friendForm').classList.contains('open');
+  var bd=document.getElementById('friendBackdrop');if(bd)bd.classList.toggle('on',open);
+  if(open)setTimeout(function(){var p=document.getElementById('friendPhone');if(p){try{p.focus({preventScroll:true})}catch(e){p.focus()}}var w=document.getElementById('who');if(w)w.scrollLeft=0},60);
+};
+var _addFriendBase=addFriend;
+addFriend=function(){
+  var before=document.querySelectorAll('#memberGrid .member').length;
+  _addFriendBase.apply(this,arguments);
+  if(document.querySelectorAll('#memberGrid .member').length>before){
+    ['friendPhone','friendName'].forEach(function(id){var e=document.getElementById(id);if(e)e.value=''});
+    var c=document.getElementById('friendConsent');if(c)c.checked=false;
+    validateFriendForm();closeFriendForm();
+  }
+};
+if(typeof buildClassChips==='function'){var _bccBase=buildClassChips;buildClassChips=function(){_bccBase.apply(this,arguments);decorateTimeChips()}}
+if(typeof hydrateMemberGrid==='function'){var _hmgBase=hydrateMemberGrid;hydrateMemberGrid=async function(){var r=await _hmgBase.apply(this,arguments);decorateTimeChips();return r}}
+var _goBeforeWhoSplit=go;
+go=function(id){var r=_goBeforeWhoSplit.apply(this,arguments);if(id==='who'){buildWhoSplit();setTimeout(function(){decorateTimeChips();if(typeof refreshMembers==='function')refreshMembers(true)},80)}else closeFriendForm();return r};
+buildWhoSplit();
 </script></html>
