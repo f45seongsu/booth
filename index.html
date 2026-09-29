@@ -2828,4 +2828,40 @@ const _goJ=go;go=function(id){_goJ(id);if(id==='result')setTimeout(()=>{const pr
 document.addEventListener('contextmenu',e=>e.preventDefault());
 document.addEventListener('gesturestart',e=>e.preventDefault());
 document.addEventListener('dblclick',e=>e.preventDefault(),{passive:false});
+
+/* ===== 시작화면 문구 랜덤 (welcome) ===== */
+var WELCOME_COPY=[
+ ['오늘 운동한 우리, 그냥 가면 아쉽잖아요!','네 컷 찍고 <b>문자로 바로</b> 받아가세요.'],
+ ['방금 그 땀, 증거로 남겨야죠.','네 컷 찍고 <b>문자로 바로</b> 받아가세요.'],
+ ['오늘도 해냈다! 기념사진 한 장?','<b>딱 네 컷</b>이면 충분해요.'],
+ ['운동은 끝, 인증은 지금부터.','찍자마자 <b>문자로</b> 보내드려요.'],
+ ['이 얼굴, 운동 직후에만 나와요.','지금 <b>네 컷</b>으로 남겨두세요.'],
+ ['같이 뛴 사람 옆에 있죠?','<b>다 같이</b> 한 장 찍고 가요.'],
+ ['오늘의 MVP는 바로 당신.','<b>네 컷 시상식</b> 시작합니다.'],
+ ['땀은 닦아도 추억은 남기자!','사진은 <b>문자로 바로</b> 도착해요.'],
+ ['벽돌이가 기다리고 있었어요.','<b>랜덤 미션</b>으로 네 컷 찍어요.'],
+ ['인스타 올릴 사진 필요하지 않아요?','<b>움직이는 네컷</b>까지 같이 드려요.'],
+ ['오늘 운동 인증, 셀카로는 부족해요.','<b>F45 네컷</b>으로 제대로 남기세요.'],
+ ['버피 몇 개 했는지는 비밀.','웃는 얼굴만 <b>네 컷</b>에 담아요.'],
+ ['오늘의 나, 어제보다 멋있다.','증명은 <b>네 컷</b>으로.'],
+ ['수고했어요, 오늘도!','마무리는 <b>포토부스</b>에서.'],
+ ['코치님도 같이 찍어요!','스티커로 <b>꾸미기</b>까지 가능해요.'],
+ ['심박수 아직 안 내려왔죠?','그 텐션 그대로 <b>네 컷</b> 가요.'],
+ ['오늘 운동 기록, 사진으로 저장!','찍고 나면 <b>문자로 바로</b> 받아요.'],
+ ['운동 끝! 이제 포즈 타임.','미션 따라 <b>네 컷</b> 찍어봐요.'],
+ ['이 멤버 이 조합, 오늘뿐이에요.','<b>다 같이</b> 한 장 남겨요.'],
+ ['집에 가기 전 잠깐만요!','<b>네 컷</b> 찍고 문자로 받아가세요.']
+];
+var _welcomeCopyLast=-1;
+function randomizeWelcomeCopy(){
+  try{
+    var el=document.querySelector('#welcome .welcomeCopy .sub'); if(!el) return;
+    var i; do{ i=Math.floor(Math.random()*WELCOME_COPY.length); }while(i===_welcomeCopyLast && WELCOME_COPY.length>1);
+    _welcomeCopyLast=i;
+    el.innerHTML=WELCOME_COPY[i][0]+'<br>'+WELCOME_COPY[i][1];
+  }catch(e){}
+}
+var _goBeforeWelcomeCopy=go;
+go=function(id){ if(id==='welcome') randomizeWelcomeCopy(); return _goBeforeWelcomeCopy.apply(this,arguments); };
+randomizeWelcomeCopy();
 </script></html>
