@@ -3022,4 +3022,42 @@ if(typeof hydrateMemberGrid==='function'){var _hmgBase=hydrateMemberGrid;hydrate
 var _goBeforeWhoSplit=go;
 go=function(id){var r=_goBeforeWhoSplit.apply(this,arguments);if(id==='who'){buildWhoSplit();setTimeout(function(){decorateTimeChips();if(typeof refreshMembers==='function')refreshMembers(true)},80)}else closeFriendForm();return r};
 buildWhoSplit();
+
+/* ===== WHO 화면 컴팩트: 글씨 크기 유지, 버튼 여백 최소화 (2026-09-30) ===== */
+(function(){ try{
+  var css=`
+  #who .top{padding-top:1.2vh!important;padding-bottom:.6vh!important;min-height:0!important}
+  #who .top .bigTitle{font-size:clamp(34px,5.5vw,64px)!important;line-height:.9!important;margin:0!important}
+  #who .top .eyebrow{margin-bottom:.2vh!important}
+  #who .split,#who .split .panel{padding-top:1.2vh!important}
+  #who .split .panel{padding:1.2vh 1.4vw!important;gap:0!important}
+  #who .panel>.sub{margin:0 0 .8vh!important;line-height:1.2!important}
+  #who .whoColHead{margin:0 0 .5vh!important;line-height:1.1}
+  #who .whoCols{gap:1.2vw!important}
+  #who #timeChips{gap:.6vh!important;padding:.1rem .4rem .3rem .1rem!important}
+  #who #timeChips .timeChip{min-height:0!important;padding:.12em .5em!important;line-height:1!important;border-radius:.7rem!important;box-shadow:.16rem .16rem 0 #111!important}
+  #who #timeChips .timeChip .t{line-height:1!important}
+  #who #timeChips .timeChip .n{padding:.05em .45em!important}
+  #who .whoPeople #rosterStatus{margin:0 0 .4vh!important;line-height:1.2}
+  #who #memberGrid{gap:.6vh .8vw!important;padding:.1rem .3rem .3rem .1rem!important}
+  #who #memberGrid .member{min-height:0!important;padding:.18em 1.9rem .18em .55em!important;border-radius:.6rem!important;box-shadow:.16rem .16rem 0 #111!important;line-height:1.05!important;justify-content:center!important;rotate:0deg}
+  #who #memberGrid .member b{line-height:1.1!important;padding-right:0!important}
+  #who #memberGrid .member small{display:none!important}
+  #who #memberGrid .member .dot{top:50%!important;right:.4rem!important;transform:translateY(-50%)!important;width:22px!important;height:22px!important}
+  #who .memberPager{margin-top:.6vh!important;gap:1rem!important}
+  #who .pgBtn{width:3.6rem!important;height:3.6rem!important}
+  #who .addFriend{padding:.35em .8em!important}
+  #who #shootBtn{padding-top:.5em!important;padding-bottom:.5em!important}
+  #who .panel>div[style*="margin-top:2vh"]{margin-top:1vh!important}
+  @media (max-width:600px){
+    #who #memberGrid .member{padding:.15em 1.6rem .15em .45em!important}
+    #who #memberGrid .member .dot{width:18px!important;height:18px!important}
+    #who #timeChips .timeChip{flex-wrap:nowrap!important}
+    #who #timeChips .timeChip .n{display:none!important}
+  }`;
+  document.querySelectorAll('#who .top .bigTitle br').forEach(function(b){b.replaceWith(' ')});
+  var st=document.createElement('style');st.id='whoCompactCss';st.textContent=css;document.head.appendChild(st);
+  // 카드 높이가 바뀌었으니 페이지당 인원 다시 계산
+  if(typeof refreshMembers==='function'&&typeof currentScreen!=='undefined'&&currentScreen==='who')refreshMembers(true);
+}catch(e){console.warn('who compact',e)} })();
 </script></html>

@@ -65,3 +65,4 @@ F45 성수 매장용 셀프 포토부스 웹앱. 삼성 갤럭시탭(세로) + O
 - WHO 화면(2026-09-29): 좌 `.whoTimes`(시간 칩 세로, 인원수 배지) / 우 `.whoPeople`(명단 2열). `buildWhoSplit()`이 첫 진입 때 DOM 재배치, CSS는 `#whoSplitCss`
 - 번호 직접 추가: `#friendForm.open`이 화면 위쪽 큰 팝업(키보드에 안 가리게), 번호 자동 하이픈, 추가 후 자동 닫힘. `#who`가 transform 컨테이너라 팝업/배경은 `#who` 안에 둬야 함
 - 시작 문구 `#welcome .welcomeCopy .sub` 글씨 크기 clamp(22px,4.2vw,44px)
+- WHO 컴팩트(2026-09-30): `#whoCompactCss` — 글씨 크기는 그대로, 카드·시간버튼 여백 최소화, 카드의 시간 줄(small) 숨김, 제목 한 줄. 태블릿 기준 시간 11개 스크롤 없음, 명단 '전체' 34명/페이지
