@@ -3,7 +3,10 @@ package com.f45seongsu.booth;
 import android.content.Context;
 import android.graphics.ImageFormat;
 import android.graphics.Rect;
+import android.graphics.PixelFormat;
 import android.graphics.YuvImage;
+import android.media.Image;
+import android.media.ImageReader;
 import android.hardware.usb.UsbConstants;
 import android.hardware.usb.UsbDevice;
 import android.os.Handler;
@@ -28,8 +31,8 @@ import java.util.List;
  * USB UVC 카메라(Insta360 Link 2C / OBSBOT 등)를 직접 열어서 최신 프레임을 JPEG로 들고 있는다.
  * 웹페이지는 MainActivity가 가로채는 /__booth_cam/frame.jpg 로 프레임을 가져간다.
  *
- * - MJPEG 1920x1080 우선. 라이브러리가 MJPEG 원본을 그대로 주면 재압축 없이 전달,
- *   아니면 NV21로 받아서 요청이 올 때만 JPEG로 압축.
+ * - MJPEG 1920x1080 우선. 라이브러리가 디코딩한 프레임을 NV21로 받아 요청이 올 때만 JPEG로 압축.
+ * - 라이브러리는 미리보기 Surface가 없으면 스트리밍을 아예 시작하지 않음 → 안 보이는 ImageReader Surface를 붙임.
  * - 4초 이상 프레임이 없으면 카메라를 다시 연다.
  */
 public class UvcSource implements USBMonitor.OnDeviceConnectListener {
@@ -53,6 +56,7 @@ public class UvcSource implements USBMonitor.OnDeviceConnectListener {
     private USBMonitor monitor;
     private UVCCamera camera;
     private UsbDevice device;
+    private ImageReader sink;   // 라이브러리가 요구하는 미리보기 Surface (화면에 안 보임, 받자마자 버림)
 
     // ---- 프레임 버퍼 (lock으로 보호) ----
     private final Object lock = new Object();
@@ -62,7 +66,7 @@ public class UvcSource implements USBMonitor.OnDeviceConnectListener {
     private long seq;
     private long lastFrameAt;
     private Frame jpegCache;
-    private boolean switchingFormat;
+    private long callbacks;
 
     // ---- 상태 (웹/설정 화면 표시용) ----
     private volatile String state = "idle";
@@ -70,7 +74,6 @@ public class UvcSource implements USBMonitor.OnDeviceConnectListener {
     private volatile String deviceName = "";
     private volatile int width, height, fps, frameType;
     private volatile String mode = "";
-    private volatile int pixelFormat = UVCCamera.PIXEL_FORMAT_RAW;
     private volatile int restarts;
 
     public UvcSource(Context context) {
@@ -119,13 +122,17 @@ public class UvcSource implements USBMonitor.OnDeviceConnectListener {
         @Override public void run() {
             try {
                 long now = SystemClock.elapsedRealtime();
-                long last;
-                synchronized (lock) { last = lastFrameAt; }
+                long last, cbs;
+                synchronized (lock) { last = lastFrameAt; cbs = callbacks; }
                 if (camera != null && ("streaming".equals(state) || "starting".equals(state))) {
                     long since = now - (last > 0 ? last : openedAt);
                     if (since > STALL_MS) {
                         Log.w(TAG, "no frames for " + since + "ms → reopen");
                         restarts++;
+                        if (last == 0) {
+                            noFrameOpens++;   // 한 장도 못 받음 → 다음엔 해상도 낮춰봄
+                            error = "프레임 없음 (콜백 " + cbs + ", 재시도 " + noFrameOpens + ")";
+                        }
                         UsbDevice d = device;
                         closeCamera();
                         state = "reconnecting";
@@ -141,6 +148,7 @@ public class UvcSource implements USBMonitor.OnDeviceConnectListener {
         }
     };
     private long openedAt;
+    private volatile int noFrameOpens;   // 열었는데 프레임이 한 장도 안 온 횟수
 
     // =========================================================
     // 장치 고르기: Insta360 → 그 외 UVC
@@ -226,7 +234,10 @@ public class UvcSource implements USBMonitor.OnDeviceConnectListener {
             List<Size> sizes = cam.getSupportedSizeList();
             Log.i(TAG, "sizes: " + sizes);
             Size used = null;
-            for (Size s : candidates(sizes)) {
+            List<Size> cands = candidates(sizes);
+            // 1080p로 두 번 연속 프레임이 안 오면 USB 대역폭 문제일 수 있음 → 720p 이하부터
+            if (noFrameOpens >= 2) cands.removeIf(s -> s.width > 1280);
+            for (Size s : cands) {
                 try {
                     int f = pickFps(s);
                     cam.setPreviewSize(s.width, s.height, s.type, f);
@@ -243,10 +254,16 @@ public class UvcSource implements USBMonitor.OnDeviceConnectListener {
             frameType = used.type;
 
             synchronized (lock) {
-                rawLen = 0; seq = 0; lastFrameAt = 0; jpegCache = null; switchingFormat = false;
+                rawLen = 0; seq = 0; lastFrameAt = 0; jpegCache = null; callbacks = 0;
             }
-            pixelFormat = UVCCamera.PIXEL_FORMAT_RAW;  // MJPEG 원본을 그대로 받아보고, 아니면 NV21로 전환
-            cam.setFrameCallback(frameCallback, pixelFormat);
+            Size cur = cam.getPreviewSize();
+            if (cur != null && cur.width > 0) { width = cur.width; height = cur.height; }
+            sink = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 3);
+            sink.setOnImageAvailableListener(r -> {
+                try (Image im = r.acquireLatestImage()) { /* 버림 */ } catch (Exception ignored) {}
+            }, worker);
+            cam.setPreviewDisplay(sink.getSurface());
+            cam.setFrameCallback(frameCallback, UVCCamera.PIXEL_FORMAT_NV21);
             cam.startPreview();
             camera = cam;
             openedAt = SystemClock.elapsedRealtime();
@@ -270,6 +287,7 @@ public class UvcSource implements USBMonitor.OnDeviceConnectListener {
         try { cam.setFrameCallback(null, 0); } catch (Exception ignored) {}
         try { cam.stopPreview(); } catch (Exception ignored) {}
         try { cam.destroy(); } catch (Exception ignored) {}
+        if (sink != null) { try { sink.close(); } catch (Exception ignored) {} sink = null; }
         synchronized (lock) { seq = 0; rawLen = 0; jpegCache = null; lastFrameAt = 0; }
     }
 
@@ -311,60 +329,27 @@ public class UvcSource implements USBMonitor.OnDeviceConnectListener {
         @Override public void onFrame(ByteBuffer buf) {
             if (buf == null) return;
             buf.rewind();
-            int n = buf.remaining();
-            if (n < 4) return;
+            int need = width * height * 3 / 2;
             synchronized (lock) {
-                if (switchingFormat) return;
-                int pf = pixelFormat;
-                boolean jpeg = false;
-                if (pf == UVCCamera.PIXEL_FORMAT_RAW) {
-                    jpeg = (buf.get(0) & 0xFF) == 0xFF && (buf.get(1) & 0xFF) == 0xD8;
-                    if (!jpeg) {
-                        // MJPEG 원본이 아님 → NV21로 받기
-                        switchingFormat = true;
-                        worker.post(UvcSource.this::switchToNv21);
-                        return;
-                    }
-                } else if (pf == UVCCamera.PIXEL_FORMAT_NV21) {
-                    if (n < width * height * 3 / 2) return;
-                    n = width * height * 3 / 2;
-                }
-                if (raw.length < n) raw = new byte[n + (n >> 3)];
-                buf.get(raw, 0, n);
-                rawLen = jpeg ? jpegEnd(raw, n) : n;
-                rawIsJpeg = jpeg;
+                callbacks++;
+                if (need <= 0 || buf.remaining() < need) return;
+                if (raw.length < need) raw = new byte[need];
+                buf.get(raw, 0, need);
+                rawLen = need;
+                rawIsJpeg = false;
                 seq++;
                 jpegCache = null;
                 lastFrameAt = SystemClock.elapsedRealtime();
                 lock.notifyAll();
             }
             if (!"streaming".equals(state)) {
-                mode = rawIsJpeg ? "mjpeg-passthrough" : "nv21-to-jpeg";
+                mode = "nv21-to-jpeg";
                 state = "streaming";
+                error = "";
+                noFrameOpens = 0;
             }
         }
     };
-
-    private void switchToNv21() {
-        UVCCamera cam = camera;
-        if (cam == null) return;
-        try {
-            pixelFormat = UVCCamera.PIXEL_FORMAT_NV21;
-            cam.setFrameCallback(frameCallback, UVCCamera.PIXEL_FORMAT_NV21);
-            Log.i(TAG, "frame callback → NV21");
-        } catch (Exception e) {
-            Log.e(TAG, "switch NV21", e);
-        }
-        synchronized (lock) { switchingFormat = false; }
-    }
-
-    /** MJPEG 버퍼 뒤에 붙은 쓰레기 데이터 잘라내기: SOS(FFDA) 이후 첫 EOI(FFD9)까지 */
-    private static int jpegEnd(byte[] b, int n) {
-        int i = 2;
-        for (; i < n - 1; i++) if ((b[i] & 0xFF) == 0xFF && (b[i + 1] & 0xFF) == 0xDA) break;
-        for (; i < n - 1; i++) if ((b[i] & 0xFF) == 0xFF && (b[i + 1] & 0xFF) == 0xD9) return i + 2;
-        return n;
-    }
 
     // =========================================================
     // 웹페이지 요청 처리 (WebView IO 스레드)
@@ -423,6 +408,8 @@ public class UvcSource implements USBMonitor.OnDeviceConnectListener {
             o.put("format", frameType == UVCCamera.UVC_VS_FRAME_MJPEG ? "MJPEG" : ("type" + frameType));
             o.put("mode", mode);
             o.put("frames", frames);
+            long cb; synchronized (lock) { cb = callbacks; }
+            o.put("callbacks", cb);
             o.put("lastFrameMs", last > 0 ? SystemClock.elapsedRealtime() - last : -1);
             o.put("restarts", restarts);
             return o.toString();
