@@ -3112,5 +3112,13 @@ async function openNativeCamera(){
   var _openBestCameraWeb=openBestCamera;
   openBestCamera=function(){return nativeCamAvailable()?openNativeCamera():_openBestCameraWeb()};
   document.documentElement.classList.add('inBoothApp');
+  // 카메라 오류 화면에 앱 카메라 상태를 같이 표시 (현장 진단용)
+  var _showErrorWeb=showError;
+  showError=function(html,retry){
+    if(/카메라/.test(html||'')){var s=nativeCamStatus();
+      html+='<br><small style="font-size:.55em;opacity:.75">[앱 '+(BoothNative.appVersion?BoothNative.appVersion():'')+' · '+(s.state||'?')+(s.device?' · '+s.device:'')+(s.error?' · '+s.error:'')+(s.width?' · '+s.width+'x'+s.height:'')+']</small>';
+      try{BoothNative.restartCamera()}catch(e){}}
+    return _showErrorWeb(html,retry);
+  };
 })();
 </script></html>
