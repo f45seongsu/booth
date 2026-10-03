@@ -56,6 +56,8 @@ public class UvcSource implements USBMonitor.OnDeviceConnectListener {
     private final Handler worker;
     private USBMonitor monitor;
     private UVCCamera camera;
+    private BulkUvc bulk;       // bulk 전송 카메라 직접 읽기 (Insta360 Link 2C)
+    private boolean active() { return camera != null || bulk != null; }
     private UsbDevice device;
     private ImageReader sink;   // 라이브러리가 요구하는 미리보기 Surface (화면에 안 보임, 받자마자 버림)
 
@@ -128,7 +130,7 @@ public class UvcSource implements USBMonitor.OnDeviceConnectListener {
                 long now = SystemClock.elapsedRealtime();
                 long last, cbs;
                 synchronized (lock) { last = lastFrameAt; cbs = callbacks; }
-                if (camera != null && ("streaming".equals(state) || "starting".equals(state))) {
+                if (active() && ("streaming".equals(state) || "starting".equals(state))) {
                     long since = now - (last > 0 ? last : openedAt);
                     if (since > STALL_MS) {
                         Log.w(TAG, "no frames for " + since + "ms → reopen");
@@ -143,7 +145,7 @@ public class UvcSource implements USBMonitor.OnDeviceConnectListener {
                         state = "reconnecting";
                         if (d != null && monitor != null) monitor.requestPermission(d);
                     }
-                } else if (camera == null && device == null && !"permission-denied".equals(state)) {
+                } else if (!active() && device == null && !"permission-denied".equals(state)) {
                     pickAndRequest();
                 }
             } catch (Exception e) {
@@ -174,7 +176,7 @@ public class UvcSource implements USBMonitor.OnDeviceConnectListener {
     }
 
     private void pickAndRequest() {
-        if (monitor == null || camera != null) return;
+        if (monitor == null || active()) return;
         UsbDevice best = null;
         for (UsbDevice d : monitor.getDeviceList()) {
             if (!isUvc(d)) continue;
@@ -200,7 +202,7 @@ public class UvcSource implements USBMonitor.OnDeviceConnectListener {
     // =========================================================
     @Override public void onAttach(UsbDevice d) {
         Log.i(TAG, "attach " + describe(d));
-        worker.post(() -> { if (camera == null) pickAndRequest(); });
+        worker.post(() -> { if (!active()) pickAndRequest(); });
     }
 
     @Override public void onDetach(UsbDevice d) {
@@ -238,6 +240,8 @@ public class UvcSource implements USBMonitor.OnDeviceConnectListener {
         state = "opening";
         error = "";
         UVCCamera cam = null;
+        // 1) bulk 전송 카메라면 직접 읽기 (처음 3번), 실패하면 라이브러리 방식
+        if (noFrameOpens < 3 && openBulk(d, ctrlBlock)) return;
         try {
             // 프레임이 안 오면 조합을 바꿔가며 재시도 (MediaTek 등은 대역폭 quirk가 필요)
             int a = noFrameOpens % ATTEMPTS.length;
@@ -301,14 +305,76 @@ public class UvcSource implements USBMonitor.OnDeviceConnectListener {
             if (cam != null) { try { cam.destroy(); } catch (Exception ignored) {} }
             camera = null;
             // 잠시 후 다시 시도
-            worker.postDelayed(() -> { if (camera == null && device != null && monitor != null) monitor.requestPermission(device); }, 3000);
+            worker.postDelayed(() -> { if (!active() && device != null && monitor != null) monitor.requestPermission(device); }, 3000);
+        }
+    }
+
+    private boolean openBulk(UsbDevice d, USBMonitor.UsbControlBlock ctrlBlock) {
+        try {
+            android.hardware.usb.UsbDeviceConnection c = ctrlBlock.getConnection();
+            if (c == null) { ctrlBlock.open(); c = ctrlBlock.getConnection(); }
+            if (c == null) { error = "USB 연결 못 엶"; return false; }
+            BulkUvc b = BulkUvc.create(d, c, this::onBulkJpeg);
+            if (b == null) return false;                 // isochronous 카메라 → 라이브러리
+            int[][] sizes = {{1920, 1080}, {1280, 720}, {1920, 1080}};
+            int[] want = sizes[Math.min(noFrameOpens, sizes.length - 1)];
+            BulkUvc.Mode m = b.pickMode(want[0], want[1]);
+            attemptDesc = "bulk#" + (noFrameOpens + 1) + " " + (m != null ? m.toString() : "모드 없음");
+            if (m == null) { error = "MJPEG 모드 못 찾음"; return false; }
+            synchronized (lock) {
+                rawLen = 0; seq = 0; lastFrameAt = 0; jpegCache = null; callbacks = 0; sinkFrames = 0;
+            }
+            width = m.width; height = m.height; fps = m.interval > 0 ? Math.round(1e7f / m.interval) : 30;
+            frameType = UVCCamera.UVC_VS_FRAME_MJPEG;
+            if (!b.start(m)) {
+                error = b.lastError;
+                Log.w(TAG, "bulk start failed: " + b.lastError);
+                b.stop();
+                return false;
+            }
+            bulk = b;
+            openedAt = SystemClock.elapsedRealtime();
+            state = "starting";
+            Log.i(TAG, "bulk preview " + m);
+            return true;
+        } catch (Exception e) {
+            Log.e(TAG, "openBulk", e);
+            error = "bulk: " + e.getMessage();
+            return false;
+        }
+    }
+
+    /** BulkUvc 읽기 스레드에서 호출: 카메라 JPEG 그대로 저장 */
+    private void onBulkJpeg(byte[] b, int len, int w, int h) {
+        synchronized (lock) {
+            callbacks++;
+            raw = b;                 // BulkUvc가 매번 새 배열을 넘김 → 복사 불필요
+            rawLen = len;
+            rawIsJpeg = true;
+            rawIsRgba = false;
+            seq++;
+            jpegCache = null;
+            lastFrameAt = SystemClock.elapsedRealtime();
+            lock.notifyAll();
+        }
+        if (!"streaming".equals(state)) {
+            mode = "bulk-mjpeg";
+            state = "streaming";
+            error = "";
+            noFrameOpens = 0;
         }
     }
 
     private void closeCamera() {
+        BulkUvc b = bulk;
+        bulk = null;
+        if (b != null) { try { b.stop(); } catch (Exception ignored) {} }
         UVCCamera cam = camera;
         camera = null;
-        if (cam == null) return;
+        if (cam == null) {
+            synchronized (lock) { seq = 0; rawLen = 0; jpegCache = null; lastFrameAt = 0; }
+            return;
+        }
         try { cam.setFrameCallback(null, 0); } catch (Exception ignored) {}
         try { cam.stopPreview(); } catch (Exception ignored) {}
         try { cam.destroy(); } catch (Exception ignored) {}
@@ -426,7 +492,7 @@ public class UvcSource implements USBMonitor.OnDeviceConnectListener {
             s = seq;
             len = rawLen;
             if (rawIsJpeg) {
-                Frame f = new Frame(java.util.Arrays.copyOf(raw, len), len, s);
+                Frame f = new Frame(raw, len, s);   // bulk 경로는 프레임마다 새 배열이라 복사 불필요
                 jpegCache = f;
                 return f;
             }
@@ -555,6 +621,8 @@ public class UvcSource implements USBMonitor.OnDeviceConnectListener {
             long sk; synchronized (lock) { sk = sinkFrames; }
             o.put("sink", sk);
             o.put("attempt", attemptDesc);
+            BulkUvc bb = bulk;
+            if (bb != null) o.put("bulk", bb.describe());
             o.put("log", lastLog);
             o.put("lastFrameMs", last > 0 ? SystemClock.elapsedRealtime() - last : -1);
             o.put("restarts", restarts);

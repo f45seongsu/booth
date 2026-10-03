@@ -70,7 +70,8 @@ F45 성수 매장용 셀프 포토부스 웹앱. 삼성 갤럭시탭(세로) + O
 
 ## 안드로이드 전용 앱 (2026-10-03, `android/`)
 - 갤럭시탭 크롬이 USB 카메라(Insta360 Link 2C, VID 2E1A/PID 4C03)를 못 봐서 만든 앱. 전체화면 WebView로 GitHub Pages 주소를 띄움 → **웹 수정은 지금처럼 index.html push만 하면 앱에도 반영**
-- 카메라: `UvcSource.java`가 UVCAndroid(`com.herohan:UVCAndroid`)로 직접 연결, MJPEG 1920x1080 우선. 4초 프레임 없으면 재연결
+- 카메라: Insta360 Link 2C는 **bulk 전송 전용**(영상 인터페이스 if1에 bulk ep 0x81, ISO 없음). UVCAndroid 라이브러리는 USB 데이터는 받지만 디코딩 단계에서 멈춤 → `BulkUvc.java`가 안드로이드 USB API로 직접 PROBE/COMMIT + bulk 읽기 → 카메라 JPEG 그대로 전달(디코딩 없음). bulk가 3번 실패하면 `UvcSource`가 라이브러리 방식(해상도·quirk 순환)으로. 4초 프레임 없으면 재연결
+- 태블릿: 갤럭시탭 S6 (SM-T860, Snapdragon 855, Android 12)
 - 프레임 전달: 웹이 `/booth/__booth_cam/frame.jpg?after=<번호>`를 fetch → 앱이 `shouldInterceptRequest`로 가로채 최신 JPEG 반환(같은 출처라 canvas 오염 없음)
 - index.html 맨 끝 블록: `window.BoothNative` 있으면 `openBestCamera`가 `openNativeCamera()`(canvas + `captureStream(30)`)를 씀. 일반 브라우저에선 기존 getUserMedia 그대로
 - 키오스크: 화면 꺼짐 방지, 뒤로가기 막음, 세로 고정, 시스템바 숨김, 외부 링크 차단
