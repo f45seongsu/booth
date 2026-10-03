@@ -3136,4 +3136,27 @@ async function openNativeCamera(){
     return _showErrorWeb(html,retry);
   };
 })();
+
+/* ===== 시작화면: 로고·제목·벽돌이 크게 (2026-10-03) =====
+   ?font=gotham 으로 열면 제목/영문을 Montserrat(Gotham 대체 무료 폰트)로 미리보기 */
+(function(){ try{
+  var css=`
+  #welcome .top .brandLogo img{height:clamp(56px,min(10vw,6.5vh),120px)!important}
+  #welcome .top .brandLogo small{font-size:clamp(12px,1.9vw,20px)!important;letter-spacing:.35em!important;margin-top:.2em}
+  #welcome .welcomeCopy h1{font-size:clamp(80px,min(21vw,11.5vh),250px)!important;line-height:.72!important}
+  #welcome .welcomeCopy{margin-bottom:15vh!important}
+  #welcome .bearHero{width:min(44vw,28vh)!important;height:min(44vw,28vh)!important;max-width:none!important;max-height:none!important;right:0!important;bottom:3vh!important}
+  #welcome .bearLeft{width:min(32vw,21vh)!important;height:min(32vw,21vh)!important;max-width:none!important;max-height:none!important;left:1vw!important;bottom:1.5vh!important}
+  @media (orientation:landscape){
+    #welcome .welcomeCopy{margin-bottom:0!important}
+    #welcome .bearHero{width:min(30vw,42vh)!important;height:min(30vw,42vh)!important}
+    #welcome .bearLeft{width:min(20vw,28vh)!important;height:min(20vw,28vh)!important}
+  }
+  html.fontGotham .display,html.fontGotham .sticker,html.fontGotham .btn{font-family:"Montserrat","Arial Black",sans-serif!important;font-weight:900!important;letter-spacing:-.02em!important}`;
+  var st=document.createElement('style');st.id='welcomeBigCss';st.textContent=css;document.head.appendChild(st);
+  if(new URLSearchParams(location.search).get('font')==='gotham'){
+    var l=document.createElement('link');l.rel='stylesheet';l.href='https://fonts.googleapis.com/css2?family=Montserrat:wght@800;900&display=swap';document.head.appendChild(l);
+    document.documentElement.classList.add('fontGotham');
+  }
+}catch(e){console.warn('welcome big',e)} })();
 </script></html>
