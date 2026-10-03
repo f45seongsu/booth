@@ -1,0 +1,53 @@
+plugins {
+    id 'com.android.application'
+}
+
+// CI가 -PversionCode=<실행번호> 로 넘겨줌 → 새 APK가 항상 위에 덮어 설치됨
+def vCode = (project.findProperty('versionCode') ?: '1').toString().toInteger()
+
+android {
+    namespace 'com.f45seongsu.booth'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.f45seongsu.booth'
+        minSdk 24
+        targetSdk 34
+        versionCode vCode
+        versionName "1.0.${vCode}"
+        ndk { abiFilters 'arm64-v8a', 'armeabi-v7a' }
+    }
+
+    // 사이드로드 전용 키. 매번 같은 키로 서명해야 업데이트 설치가 됨(레포가 public이라 비밀 키 아님)
+    signingConfigs {
+        booth {
+            storeFile rootProject.file('booth.keystore')
+            storePassword 'f45booth'
+            keyAlias 'booth'
+            keyPassword 'f45booth'
+        }
+    }
+
+    buildTypes {
+        debug { signingConfig signingConfigs.booth }
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.booth
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    buildFeatures { buildConfig true }
+
+    packaging {
+        jniLibs { useLegacyPackaging true }
+    }
+}
+
+dependencies {
+    implementation 'com.herohan:UVCAndroid:1.0.13'
+}

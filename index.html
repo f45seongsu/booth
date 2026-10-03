@@ -3060,4 +3060,57 @@ buildWhoSplit();
   // 카드 높이가 바뀌었으니 페이지당 인원 다시 계산
   if(typeof refreshMembers==='function'&&typeof currentScreen!=='undefined'&&currentScreen==='who')refreshMembers(true);
 }catch(e){console.warn('who compact',e)} })();
+
+/* ===== 안드로이드 포토부스 앱(USB UVC 카메라) 연결 (2026-10-03) =====
+   앱(android/) 안에서 열리면 window.BoothNative 가 있음 → getUserMedia 대신
+   앱이 주는 /__booth_cam/frame.jpg 를 계속 받아 canvas에 그리고 canvas.captureStream()을 카메라 stream으로 사용.
+   미리보기·촬영·메이킹 영상 코드는 그대로. 프레임이 4초 끊기면 track 'ended' → 기존 재연결 로직. */
+var NATIVE_CAM_FPS=30;
+function nativeCamAvailable(){try{return !!(window.BoothNative&&typeof BoothNative.camStatus==='function')}catch(e){return false}}
+function nativeCamStatus(){try{return JSON.parse(BoothNative.camStatus())||{}}catch(e){return {}}}
+async function openNativeCamera(){
+  var sleep=function(ms){return new Promise(function(r){setTimeout(r,ms)})};
+  var st={},t0=Date.now();
+  while(Date.now()-t0<8000){st=nativeCamStatus();if(st.state==='streaming'&&st.frames>0)break;await sleep(250)}
+  if(st.state!=='streaming')throw new Error('native camera '+(st.state||'?')+(st.error?': '+st.error:''));
+  var url=new URL('__booth_cam/frame.jpg',location.href).pathname; // 앱이 가로채서 카메라 프레임을 돌려줌
+  var seq=0;
+  async function grab(){
+    var r=await fetch(url+'?after='+seq,{cache:'no-store'});
+    if(r.status!==200)return null;
+    var n=+r.headers.get('X-Frame-No');seq=n>0?n:seq+1;
+    return createImageBitmap(await r.blob());
+  }
+  var first=null;for(var i=0;i<20&&!first;i++){try{first=await grab()}catch(e){await sleep(150)}}
+  if(!first)throw new Error('native camera: no frame');
+  var c=document.createElement('canvas');c.width=first.width;c.height=first.height;
+  var x=c.getContext('2d');x.drawImage(first,0,0);first.close&&first.close();
+  var ms=c.captureStream(NATIVE_CAM_FPS),tr=ms.getVideoTracks()[0],alive=true,lastOk=Date.now();
+  var _stop=tr.stop.bind(tr);tr.stop=function(){alive=false;_stop()};
+  (async function pump(){
+    while(alive&&tr.readyState==='live'){
+      try{
+        var bm=await grab();
+        if(bm){
+          if(c.width!==bm.width||c.height!==bm.height){c.width=bm.width;c.height=bm.height}
+          x.drawImage(bm,0,0);bm.close&&bm.close();lastOk=Date.now();
+        }
+      }catch(e){await sleep(200)}
+      if(alive&&Date.now()-lastOk>4000){
+        alive=false;console.warn('[booth] native camera stalled',nativeCamStatus());
+        try{tr.dispatchEvent(new Event('ended'))}catch(e){}
+        break;
+      }
+    }
+  })();
+  var s=nativeCamStatus();
+  console.log('[booth] native camera:',s.device,s.width+'x'+s.height,s.mode);
+  return ms;
+}
+(function(){
+  if(!nativeCamAvailable())return;
+  var _openBestCameraWeb=openBestCamera;
+  openBestCamera=function(){return nativeCamAvailable()?openNativeCamera():_openBestCameraWeb()};
+  document.documentElement.classList.add('inBoothApp');
+})();
 </script></html>

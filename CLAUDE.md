@@ -67,3 +67,14 @@ F45 성수 매장용 셀프 포토부스 웹앱. 삼성 갤럭시탭(세로) + O
 - 시작 문구 `#welcome .welcomeCopy .sub` 글씨 크기 clamp(22px,4.2vw,44px)
 - WHO 컴팩트(2026-09-30): `#whoCompactCss` — 글씨 크기는 그대로, 카드·시간버튼 여백 최소화, 카드의 시간 줄(small) 숨김, 제목 한 줄. 태블릿 기준 시간 11개 스크롤 없음, 명단 '전체' 34명/페이지
 - 코치/매니저 스티커(2026-10-01): `STICKER_LIB`의 team_민재~team_승준 9개를 절취선 시트에서 다시 잘라 교체(흰 테두리 다이컷). 원본은 `team/*.webp`
+
+## 안드로이드 전용 앱 (2026-10-03, `android/`)
+- 갤럭시탭 크롬이 USB 카메라(Insta360 Link 2C, VID 2E1A/PID 4C03)를 못 봐서 만든 앱. 전체화면 WebView로 GitHub Pages 주소를 띄움 → **웹 수정은 지금처럼 index.html push만 하면 앱에도 반영**
+- 카메라: `UvcSource.java`가 UVCAndroid(`com.herohan:UVCAndroid`)로 직접 연결, MJPEG 1920x1080 우선. 4초 프레임 없으면 재연결
+- 프레임 전달: 웹이 `/booth/__booth_cam/frame.jpg?after=<번호>`를 fetch → 앱이 `shouldInterceptRequest`로 가로채 최신 JPEG 반환(같은 출처라 canvas 오염 없음)
+- index.html 맨 끝 블록: `window.BoothNative` 있으면 `openBestCamera`가 `openNativeCamera()`(canvas + `captureStream(30)`)를 씀. 일반 브라우저에선 기존 getUserMedia 그대로
+- 키오스크: 화면 꺼짐 방지, 뒤로가기 막음, 세로 고정, 시스템바 숨김, 외부 링크 차단
+- 숨은 설정: 화면 **왼쪽 위 모서리 5번 탭** → 시작 주소(최초 1회 `?key=토큰` 붙여 저장), 카메라 다시 연결, 새로고침, 카메라 상태
+- USB 권한: 카메라 꽂을 때 "F45 Booth로 열기 → 항상" 체크하면 계속 유지 (`res/xml/device_filter.xml`)
+- 빌드: `.github/workflows/android.yml` — `android/**` 바뀌면 자동 빌드. main이면 https://github.com/f45seongsu/booth/releases/download/android-latest/f45-booth.apk 로 올라감. 서명 키 `android/booth.keystore`(사이드로드용, 같은 키라 위에 덮어 설치 가능)
+- 디버깅: PC 크롬 `chrome://inspect`로 앱 WebView 콘솔 확인 가능, JS에서 `BoothNative.camStatus()`

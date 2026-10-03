@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Insta360 Link 2C (VID 0x2E1A, PID 0x4C03) -->
+    <usb-device vendor-id="11802" product-id="19459" />
+    <!-- 기타 Insta360 카메라 -->
+    <usb-device vendor-id="11802" />
+    <!-- OBSBOT 등 일반 UVC 웹캠 (Video 클래스 / IAD 복합장치) -->
+    <usb-device class="14" />
+    <usb-device class="239" subclass="2" />
+</resources>
