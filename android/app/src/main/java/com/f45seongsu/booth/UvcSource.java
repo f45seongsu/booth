@@ -1,6 +1,7 @@
 package com.f45seongsu.booth;
 
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.graphics.ImageFormat;
 import android.graphics.Rect;
 import android.graphics.PixelFormat;
@@ -67,6 +68,9 @@ public class UvcSource implements USBMonitor.OnDeviceConnectListener {
     private long lastFrameAt;
     private Frame jpegCache;
     private long callbacks;
+    private long sinkFrames;
+    private int rawStride;   // rawIsRgba일 때 한 줄 바이트 수
+    private boolean rawIsRgba;
 
     // ---- 상태 (웹/설정 화면 표시용) ----
     private volatile String state = "idle";
@@ -148,6 +152,11 @@ public class UvcSource implements USBMonitor.OnDeviceConnectListener {
         }
     };
     private long openedAt;
+    private volatile String attemptDesc = "";
+    /** {최대 가로, MJPEG만(1)/무압축(0), 대역폭 quirk 강제(1)} */
+    private static final int[][] ATTEMPTS = {
+            {1920, 1, 0}, {1920, 1, 1}, {1280, 1, 1}, {1280, 1, 0}, {640, 1, 1}, {640, 0, 1},
+    };
     private volatile int noFrameOpens;   // 열었는데 프레임이 한 장도 안 온 횟수
 
     // =========================================================
@@ -227,7 +236,15 @@ public class UvcSource implements USBMonitor.OnDeviceConnectListener {
         error = "";
         UVCCamera cam = null;
         try {
-            cam = new UVCCamera(new UVCParam());
+            // 프레임이 안 오면 조합을 바꿔가며 재시도 (MediaTek 등은 대역폭 quirk가 필요)
+            int a = noFrameOpens % ATTEMPTS.length;
+            int maxW = ATTEMPTS[a][0];
+            boolean mjpegOnly = ATTEMPTS[a][1] == 1;
+            int quirks = ATTEMPTS[a][2] == 1 ? UVCCamera.UVC_QUIRK_FIX_BANDWIDTH : UVCCamera.getRecommendedPlatformQuirks();
+            attemptDesc = "#" + (a + 1) + " ≤" + maxW + (mjpegOnly ? " MJPEG" : " YUYV") + (quirks != 0 ? " +BW" : "");
+            UVCParam param = new UVCParam();
+            param.setQuirks(quirks);
+            cam = new UVCCamera(param);
             int r = cam.open(ctrlBlock);
             if (r != 0) throw new IllegalStateException("open() = " + r);
 
@@ -235,8 +252,8 @@ public class UvcSource implements USBMonitor.OnDeviceConnectListener {
             Log.i(TAG, "sizes: " + sizes);
             Size used = null;
             List<Size> cands = candidates(sizes);
-            // 1080p로 두 번 연속 프레임이 안 오면 USB 대역폭 문제일 수 있음 → 720p 이하부터
-            if (noFrameOpens >= 2) cands.removeIf(s -> s.width > 1280);
+            cands.removeIf(s -> s.width > maxW || (mjpegOnly != (s.type == UVCCamera.UVC_VS_FRAME_MJPEG)));
+            if (cands.isEmpty()) cands = candidates(sizes);
             for (Size s : cands) {
                 try {
                     int f = pickFps(s);
@@ -254,13 +271,17 @@ public class UvcSource implements USBMonitor.OnDeviceConnectListener {
             frameType = used.type;
 
             synchronized (lock) {
-                rawLen = 0; seq = 0; lastFrameAt = 0; jpegCache = null; callbacks = 0;
+                rawLen = 0; seq = 0; lastFrameAt = 0; jpegCache = null; callbacks = 0; sinkFrames = 0;
             }
             Size cur = cam.getPreviewSize();
             if (cur != null && cur.width > 0) { width = cur.width; height = cur.height; }
             sink = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 3);
             sink.setOnImageAvailableListener(reader -> {
-                try (Image im = reader.acquireLatestImage()) { /* 버림 */ } catch (Exception ignored) {}
+                try (Image im = reader.acquireLatestImage()) {
+                    if (im != null) onSinkImage(im);
+                } catch (Exception e) {
+                    Log.w(TAG, "sink", e);
+                }
             }, worker);
             cam.setPreviewDisplay(sink.getSurface());
             cam.setFrameCallback(frameCallback, UVCCamera.PIXEL_FORMAT_NV21);
@@ -337,6 +358,7 @@ public class UvcSource implements USBMonitor.OnDeviceConnectListener {
                 buf.get(raw, 0, need);
                 rawLen = need;
                 rawIsJpeg = false;
+                rawIsRgba = false;
                 seq++;
                 jpegCache = null;
                 lastFrameAt = SystemClock.elapsedRealtime();
@@ -350,6 +372,35 @@ public class UvcSource implements USBMonitor.OnDeviceConnectListener {
             }
         }
     };
+
+    /** 미리보기 Surface로 들어온 RGBA 프레임. NV21 콜백이 안 오는 기기에서는 이걸 대신 씀 */
+    private void onSinkImage(Image im) {
+        Image.Plane pl = im.getPlanes()[0];
+        ByteBuffer b = pl.getBuffer();
+        int stride = pl.getRowStride();
+        int h = im.getHeight();
+        synchronized (lock) {
+            sinkFrames++;
+            if (callbacks > 0) return;              // 정상 경로(NV21 콜백)가 살아 있으면 안 씀
+            int n = Math.min(b.remaining(), stride * h);
+            if (raw.length < n) raw = new byte[n];
+            b.get(raw, 0, n);
+            rawLen = n;
+            rawStride = stride;
+            rawIsRgba = true;
+            rawIsJpeg = false;
+            seq++;
+            jpegCache = null;
+            lastFrameAt = SystemClock.elapsedRealtime();
+            lock.notifyAll();
+        }
+        if (!"streaming".equals(state)) {
+            mode = "surface-rgba";
+            state = "streaming";
+            error = "";
+            noFrameOpens = 0;
+        }
+    }
 
     // =========================================================
     // 웹페이지 요청 처리 (WebView IO 스레드)
@@ -378,6 +429,28 @@ public class UvcSource implements USBMonitor.OnDeviceConnectListener {
             copy = java.util.Arrays.copyOf(raw, len);
             w = width;
             h = height;
+            if (rawIsRgba) {
+                int stride = rawStride;
+                try {
+                    Bitmap bm = Bitmap.createBitmap(stride / 4, len / stride, Bitmap.Config.ARGB_8888);
+                    bm.copyPixelsFromBuffer(ByteBuffer.wrap(copy, 0, (stride / 4) * 4 * (len / stride)));
+                    if (bm.getWidth() != w || bm.getHeight() != h) {
+                        Bitmap c = Bitmap.createBitmap(bm, 0, 0, Math.min(w, bm.getWidth()), Math.min(h, bm.getHeight()));
+                        bm.recycle();
+                        bm = c;
+                    }
+                    ByteArrayOutputStream out = new ByteArrayOutputStream(w * h / 4);
+                    bm.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, out);
+                    bm.recycle();
+                    byte[] j = out.toByteArray();
+                    Frame f = new Frame(j, j.length, s);
+                    jpegCache = f;
+                    return f;
+                } catch (Exception e) {
+                    Log.w(TAG, "rgba encode", e);
+                    return null;
+                }
+            }
         }
         // NV21 → JPEG (lock 밖에서 압축해서 카메라 스레드를 막지 않음)
         try {
@@ -410,6 +483,9 @@ public class UvcSource implements USBMonitor.OnDeviceConnectListener {
             o.put("frames", frames);
             long cb; synchronized (lock) { cb = callbacks; }
             o.put("callbacks", cb);
+            long sk; synchronized (lock) { sk = sinkFrames; }
+            o.put("sink", sk);
+            o.put("attempt", attemptDesc);
             o.put("lastFrameMs", last > 0 ? SystemClock.elapsedRealtime() - last : -1);
             o.put("restarts", restarts);
             return o.toString();
@@ -420,12 +496,12 @@ public class UvcSource implements USBMonitor.OnDeviceConnectListener {
 
     public String stateText() {
         switch (state) {
-            case "streaming": return "카메라 연결됨 · " + deviceName + " · " + width + "x" + height + " " + mode;
+            case "streaming": return "카메라 연결됨 · " + deviceName + " · " + width + "x" + height + " " + mode + " " + attemptDesc;
             case "no-device": return "USB 카메라가 안 보여요 (케이블/허브 확인)";
             case "permission": return "USB 권한 요청 중…";
             case "permission-denied": return "USB 권한이 거부됐어요. '카메라 다시 연결'을 누르고 허용해주세요";
             case "error": return "카메라 오류: " + error;
-            default: return state + (deviceName.isEmpty() ? "" : " · " + deviceName);
+            default: return state + (deviceName.isEmpty() ? "" : " · " + deviceName) + " · " + attemptDesc + (error.isEmpty() ? "" : " · " + error);
         }
     }
 }

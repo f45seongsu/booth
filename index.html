@@ -3116,8 +3116,7 @@ async function openNativeCamera(){
   var _showErrorWeb=showError;
   showError=function(html,retry){
     if(/카메라/.test(html||'')){var s=nativeCamStatus();
-      html+='<br><small style="font-size:.55em;opacity:.75">[앱 '+(BoothNative.appVersion?BoothNative.appVersion():'')+' · '+(s.state||'?')+(s.device?' · '+s.device:'')+(s.error?' · '+s.error:'')+(s.width?' · '+s.width+'x'+s.height:'')+(s.callbacks!=null?' · cb '+s.callbacks+'/'+s.frames:'')+']</small>';
-      try{BoothNative.restartCamera()}catch(e){}}
+      html+='<br><small style="font-size:.55em;opacity:.75">[앱 '+(BoothNative.appVersion?BoothNative.appVersion():'')+' · '+(s.state||'?')+(s.device?' · '+s.device:'')+(s.error?' · '+s.error:'')+(s.width?' · '+s.width+'x'+s.height:'')+(s.callbacks!=null?' · cb '+s.callbacks+'/'+(s.sink||0)+'/'+s.frames:'')+(s.attempt?' · '+s.attempt:'')+']</small>';}
     return _showErrorWeb(html,retry);
   };
 })();
