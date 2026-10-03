@@ -62,7 +62,7 @@ F45 성수 매장용 셀프 포토부스 웹앱. 삼성 갤럭시탭(세로) + O
 - 포즈 추가: `bears/bear_17.webp` 식으로 넣고 `BEAR_POSES` 생성 루프의 `i<=16` 숫자만 올리면 됨 (720px 높이 webp 권장)
 - 파일 로드 실패 시 index.html 내장 원본 그림으로 자동 복귀
 - 시작 문구 `WELCOME_COPY` 20개 랜덤
-- WHO 화면(2026-09-29): 좌 `.whoTimes`(시간 칩 세로, 인원수 배지) / 우 `.whoPeople`(명단 2열). `buildWhoSplit()`이 첫 진입 때 DOM 재배치, CSS는 `#whoSplitCss`
+- WHO 화면(2026-09-29): 좌 `.whoTimes`(시간 칩 세로, 인원수는 숨김 — 회원 수 노출 금지) / 우 `.whoPeople`(명단 2열). `buildWhoSplit()`이 첫 진입 때 DOM 재배치, CSS는 `#whoSplitCss`
 - 번호 직접 추가: `#friendForm.open`이 화면 위쪽 큰 팝업(키보드에 안 가리게), 번호 자동 하이픈, 추가 후 자동 닫힘. `#who`가 transform 컨테이너라 팝업/배경은 `#who` 안에 둬야 함
 - 시작 문구 `#welcome .welcomeCopy .sub` 글씨 크기 clamp(22px,4.2vw,44px)
 - WHO 컴팩트(2026-09-30): `#whoCompactCss` — 글씨 크기는 그대로, 카드·시간버튼 여백 최소화, 카드의 시간 줄(small) 숨김, 제목 한 줄. 태블릿 기준 시간 11개 스크롤 없음, 명단 '전체' 34명/페이지
@@ -87,3 +87,5 @@ F45 성수 매장용 셀프 포토부스 웹앱. 삼성 갤럭시탭(세로) + O
 - 인화 화면(2026-10-03): `#makingPrinterCss` — 기존 필름 박스 대신 실제 완성 사진(`renderComposite` 600x900)이 프린터 슬롯에서 4초간 나오며 색이 올라오는 연출, 단계 목록 컴팩트(폰·태블릿·가로 모두 화면 안)
 - WHO 날짜(2026-10-04): `#whoDays` 엊그제·어제·오늘 버튼(`WHO_DAY` 0=오늘). `loadMemberList(dayOffset)` 재정의. WHO 들어올 때 오늘 기준, 오늘 출석 0명이면 회원 있는 최근 날로 자동 이동. 시간 칩은 그날 회원 있는 시간만(회원 없으면 예전 고정 시간표 대신 "출석 기록이 없어요")
 - 앱 아이콘(2026-10-04): 적응형 아이콘 — 남색(#001A4D) 배경 + 스티커 벽돌이 `bear_14`(`res/mipmap-*/ic_launcher_fg.png`). 바꾸려면 STICKER_LIB에서 다른 bear 이미지를 뽑아 같은 크기(108dp: 108~432px, 벽돌이 폭 64dp)로 다시 생성
+- 촬영 화질(2026-10-04): 앱에서는 셔터가 `<video>`(captureStream → 4:2:0 색 손실) 대신 `nativeBestShot()`으로 앱 원본 프레임을 직접 씀 — 최근 4프레임 중 가장 선명한 것(가운데 영역 라플라시안 분산), 좌우반전·자동 WB 적용, JPEG 0.95. `drawCover`는 imageSmoothingQuality='high', 업로드 JPEG 0.94, 미리보기용 finalDataUrl 0.92
+- WHO 화면에는 **인원수 표시 금지**(시간 칩 'N명' 배지·상태줄 'N명' 제거, 2026-10-04 요청 — 회원 수 노출 싫음)

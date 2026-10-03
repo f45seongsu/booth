@@ -1672,7 +1672,7 @@ async function hydrateMemberGrid(){
   try{list=await loadMemberList()}catch(e){console.warn('CRM load failed',e)}
   if(!list){setRosterStatus('명단 불러오기 실패 · 인터넷/키 확인',true);return} // 오프라인/미연결: 데모 명단 유지
   todayMembers=list;
-  setRosterStatus(`오늘 ${list.length}명 · ${new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})} 업데이트`);
+  setRosterStatus(`오늘 · ${new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})} 업데이트`);
   const g=document.getElementById('memberGrid');if(!g)return;
   g.innerHTML='';
   if(!list.length){g.innerHTML='<p class="noMembers">오늘 출석 기록이 아직 없어요.<br>아래 <b>+ 직접 추가</b>로 입력해주세요.</p>'}
@@ -1811,7 +1811,7 @@ startMaking=async function(){
   [1,2,3].forEach(n=>{const el=document.getElementById('makingStep'+n);if(el)el.className=''});
   try{
     if(!navigator.onLine)throw new Error('offline');
-    st(1,'doing');const canvas=await composeFinal();finalDataUrl=canvas.toDataURL('image/jpeg',.85);const blob=await canvasToBlob(canvas);const filmBlob=await buildFrameFilm(finalDataUrl).catch(e=>{console.warn('film failed',e);return null});st(1,'done');
+    st(1,'doing');const canvas=await composeFinal();finalDataUrl=canvas.toDataURL('image/jpeg',.92);const blob=await canvasToBlob(canvas);const filmBlob=await buildFrameFilm(finalDataUrl).catch(e=>{console.warn('film failed',e);return null});st(1,'done');
     st(2,'doing');lastUpload=await uploadToStorage({blob,makingBlob:filmBlob,boomBlob:null});st(2,'done');
     st(3,'doing');const members=getSelectedMembers();const ok=await sendResultBySMS(lastUpload,members);
     await logBooth(members,lastUpload,ok);if(!ok)throw new Error('sms');st(3,'done');
@@ -2961,7 +2961,7 @@ function decorateTimeChips(){
       if(!hm){b.classList.add('all');b.innerHTML='<span class="t">'+(raw==='선택 안 함'?'전체':raw)+'</span>';return}
       var m=raw.match(/(\d{1,2}:\d{2})\s*(AM|PM)/i);
       var n=members.filter(function(x){return (x.dataset.times||'').split(',').indexOf(hm)>=0}).length;
-      b.innerHTML='<span><span class="t">'+m[1]+'</span><span class="ap">'+m[2].toUpperCase()+'</span></span>'+(n?'<span class="n">'+n+'명</span>':'');
+      b.innerHTML='<span><span class="t">'+m[1]+'</span><span class="ap">'+m[2].toUpperCase()+'</span></span>'; // 인원수는 표시 안 함(2026-10-04)
     });
   }catch(e){}
 }
@@ -3071,6 +3071,32 @@ var NATIVE_CAM_FPS=30;
    SVG feColorMatrix(#camWB)로 canvas에 그릴 때 적용 → 미리보기·촬영·움직이는 네컷 모두 같은 색.
    STRENGTH 1=완전 보정(피부가 창백해질 수 있음), 0=끔. ?nowb 로 끔. */
 var CAM_WB={on:!/[?&]nowb\b/.test(location.search),strength:0.7,r:1,g:1,b:1,last:0,sc:null,sx:null};
+/* 촬영 화질(2026-10-04): 셔터 때 video(captureStream → 색 정보 4:2:0로 줄어듦) 대신
+   앱이 준 원본 카메라 프레임을 직접 사용. 최근 프레임 4장을 들고 있다가 가장 선명한 것(라플라시안 분산, 가운데 영역)을 고름 */
+var NATIVE_RING=[],NATIVE_RING_MAX=4,_sharpC=null,_sharpX=null;
+function frameSharpness(bm){
+  try{
+    if(!_sharpC){_sharpC=document.createElement('canvas');_sharpC.width=160;_sharpC.height=120;_sharpX=_sharpC.getContext('2d',{willReadFrequently:true})}
+    var sw=bm.width*.6,sh=bm.height*.6;_sharpX.drawImage(bm,(bm.width-sw)/2,(bm.height-sh)/2,sw,sh,0,0,160,120);
+    var d=_sharpX.getImageData(0,0,160,120).data,W=160,H=120,g=new Float32Array(W*H),sum=0,sq=0,n=0;
+    for(var i=0,j=0;i<d.length;i+=4,j++)g[j]=d[i]*.299+d[i+1]*.587+d[i+2]*.114;
+    for(var y=1;y<H-1;y++)for(var x=1;x<W-1;x++){var k=y*W+x,l=4*g[k]-g[k-1]-g[k+1]-g[k-W]-g[k+W];sum+=l;sq+=l*l;n++}
+    var m=sum/n;return sq/n-m*m;
+  }catch(e){return 0}
+}
+function nativeRingPush(bm){
+  NATIVE_RING.push({bm:bm,t:performance.now(),s:frameSharpness(bm)});
+  while(NATIVE_RING.length>NATIVE_RING_MAX){var o=NATIVE_RING.shift();try{o.bm.close&&o.bm.close()}catch(e){}}
+}
+function nativeBestShot(){
+  var now=performance.now(),cand=NATIVE_RING.filter(function(f){return now-f.t<450});
+  if(!cand.length)return null;
+  var best=cand.reduce(function(a,b){return b.s>a.s?b:a});
+  var c=document.getElementById('captureCanvas')||document.createElement('canvas'),bm=best.bm;
+  c.width=bm.width;c.height=bm.height;var x=c.getContext('2d');
+  x.save();x.translate(bm.width,0);x.scale(-1,1);x.filter=CAM_WB.on?'url(#camWB)':'none';x.drawImage(bm,0,0);x.restore();
+  return c.toDataURL('image/jpeg',.95);
+}
 function camWBFilter(){
   var f=document.getElementById('camWBm');if(f)return f;
   var d=document.createElement('div');d.style.cssText='position:absolute;width:0;height:0;overflow:hidden';
@@ -3116,7 +3142,7 @@ async function openNativeCamera(){
   var c=document.createElement('canvas');c.width=first.width;c.height=first.height;
   var x=c.getContext('2d');x.drawImage(first,0,0);first.close&&first.close();
   var ms=c.captureStream(NATIVE_CAM_FPS),tr=ms.getVideoTracks()[0],alive=true,lastOk=Date.now();
-  var _stop=tr.stop.bind(tr);tr.stop=function(){alive=false;_stop()};
+  var _stop=tr.stop.bind(tr);tr.stop=function(){alive=false;NATIVE_RING.splice(0).forEach(function(o){try{o.bm.close()}catch(e){}});_stop()};
   (async function pump(){
     while(alive&&tr.readyState==='live'){
       try{
@@ -3124,7 +3150,7 @@ async function openNativeCamera(){
         if(bm){
           if(c.width!==bm.width||c.height!==bm.height){c.width=bm.width;c.height=bm.height}
           camAutoWB(bm);x.filter=CAM_WB.on?'url(#camWB)':'none';
-          x.drawImage(bm,0,0);bm.close&&bm.close();lastOk=Date.now();
+          x.drawImage(bm,0,0);nativeRingPush(bm);lastOk=Date.now();
         }
       }catch(e){await sleep(200)}
       if(alive&&Date.now()-lastOk>4000){
@@ -3365,7 +3391,7 @@ function renderWhoDays(){
         var g=document.getElementById('memberGrid'),np=g&&g.querySelector('.noMembers');
         if(np)np.innerHTML=WHO_DAY_NAMES[WHO_DAY]+' 출석 기록이 없어요.<br>위에서 다른 날을 고르거나 <b>+ 번호로 직접 추가</b>해주세요.';
         var st=document.getElementById('rosterStatus');
-        if(st&&!st.classList.contains('bad'))st.textContent=WHO_DAY_NAMES[WHO_DAY]+' '+whoDayLabel(WHO_DAY)+' · '+todayMembers.length+'명';
+        if(st&&!st.classList.contains('bad'))st.textContent=WHO_DAY_NAMES[WHO_DAY]+' '+whoDayLabel(WHO_DAY);
       }
       return r;
     }finally{_whoDayBusy=false;renderWhoDays()}
@@ -3386,5 +3412,19 @@ function renderWhoDays(){
   @media (max-width:600px){#who #whoDays{gap:3px}#who #whoDays .whoDay{padding:.4em 0}#who #whoDays .whoDay b{font-size:12px;white-space:nowrap;letter-spacing:-.04em}#who #whoDays .whoDay small{display:none}}`;
   var stl=document.createElement('style');stl.id='whoDaysCss';stl.textContent=css;document.head.appendChild(stl);
   renderWhoDays();
+})();
+
+/* ===== 화질(2026-10-04): 셔터는 앱 원본 프레임 직접 + 확대/축소 고품질 + JPEG 압축 덜 하기 ===== */
+(function(){
+  var _capPrev=captureCurrentFrame;
+  captureCurrentFrame=function(){
+    var data=null;try{if(nativeCamAvailable()&&stream&&stream.active)data=nativeBestShot()}catch(e){data=null}
+    if(!data)return _capPrev.apply(this,arguments);
+    capturedShots.push(data);clipShotTimes[capturedShots.length-1]=performance.now();
+    var im=document.createElement('img');im.className='shotThumb';im.src=data;var ts=document.getElementById('thumbStack');if(ts)ts.appendChild(im);
+  };
+  var _drawCoverPrev=drawCover;
+  drawCover=function(ctx){try{ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high'}catch(e){}return _drawCoverPrev.apply(this,arguments)};
+  canvasToBlob=function(c,q){return new Promise(function(r){c.toBlob(r,'image/jpeg',q||.94)})};
 })();
 </script></html>
