@@ -69,7 +69,7 @@ class UvcControls {
         u.list.add(new Ctl("gain", "감도(게인)", false, 0x04, 2, false, false));
         u.list.add(new Ctl("wbauto", "자동 화이트밸런스", false, 0x0B, 1, false, true));
         u.list.add(new Ctl("wbtemp", "색온도 (자동 WB 끌 때)", false, 0x0A, 2, false, false));
-        u.list.add(new Ctl("flicker", "깜빡임 방지 (0=끔 1=50Hz 2=60Hz, 한국은 2)", false, 0x05, 1, false, false));
+        u.list.add(new Ctl("flicker", "깜빡임 방지 (0=끔 1=50Hz 2=60Hz 3=자동)", false, 0x05, 1, false, false));
         u.list.add(new Ctl("zoom", "줌 (작을수록 넓게·선명)", true, 0x0B, 2, false, false));
         for (Ctl k : u.list) u.readRange(k);
         return u;
@@ -100,7 +100,7 @@ class UvcControls {
             return;
         }
         if (k.key.equals("flicker")) {   // 전원 주파수: MIN/MAX 없는 카메라가 많음 → 0~2 고정
-            k.ok = true; k.min = 0; k.max = 2;
+            k.ok = true; k.min = 0; k.max = 3;
             Integer d = get(k, 0x87);
             k.def = d != null ? d : cur;
             return;
@@ -146,9 +146,9 @@ class UvcControls {
         // 직접 저장한 값이 없으면 자동 화이트밸런스는 항상 켜기 (카메라에 수동 WB가 남아 있으면 사진이 빨갛게 나옴)
         Ctl wb = find("wbauto");
         if (wb != null && wb.ok && !p.contains("uvc_wbauto") && !isOn(wb)) set(wb, 1);
-        // 한국 전기 60Hz → LED 조명 줄무늬/깜빡임 방지
+        // 깜빡임 방지: 이 카메라 기본은 3(자동). 예전 버전이 60Hz(2)로 강제했던 것 되돌림
         Ctl fl = find("flicker");
-        if (fl != null && fl.ok && !p.contains("uvc_flicker") && fl.cur != 2) set(fl, 2);
+        if (fl != null && fl.ok && !p.contains("uvc_flicker") && fl.cur != fl.def) set(fl, fl.def);
         // 디지털 줌(AI 프레이밍이 남긴 확대) 풀기 → 센서 화소 전부 사용
         Ctl zm = find("zoom");
         if (zm != null && zm.ok && !p.contains("uvc_zoom") && zm.cur != zm.min) set(zm, zm.min);

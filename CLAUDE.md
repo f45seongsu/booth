@@ -83,7 +83,7 @@ F45 성수 매장용 셀프 포토부스 웹앱. 삼성 갤럭시탭(세로) + O
 - 시작화면 크게(2026-10-03): `#welcomeBigCss` — 성수 로고 높이 clamp(56px,min(10vw,6.5vh),120px), 제목 clamp(80px,min(21vw,11.5vh),250px), 벽돌이 오른쪽 min(44vw,28vh)/왼쪽 min(32vw,21vh), 문구 블록 margin-bottom 15vh(벽돌이와 안 겹치게). `?font=gotham`이면 제목·스티커·버튼을 Montserrat(Gotham 무료 대체)로 미리보기
 - 화질(2026-10-03): bulk 모드는 **1920x1440(4:3) 우선**(세로 네컷 칸 화소 최대) → 1920x1080 → 1280x720. 최종 사진 `FINAL_SCALE=1.5` → 1800x2700. 숨은 설정 → "카메라 화질 조정": `UvcControls.java`가 UVC 제어(자동노출·노출시간·밝기·대비·채도·선명도·감마·역광보정·게인·자동WB·색온도)를 직접 설정, 값은 prefs `uvc_*`에 저장돼 카메라 열 때마다 자동 적용
 - 태블릿 세로 화면 다듬기(2026-10-03): `#portraitPolishCss` (orientation:portrait and min-width:601px) — 결과(사진 50vh 크게, 중복 제목 숨김, QR+FINISH 한 줄, 벽돌이 숨김)·마무리·프레임·메이킹·오류 화면 글씨/버튼/벽돌이 확대. 폰(≤600px)은 기존 규칙 그대로
-- 자동 화이트밸런스(2026-10-03): 앱 카메라 프레임이 빨갛게 나와서 `openNativeCamera` 펌프에서 `camAutoWB()`가 0.4초마다 gray-world로 R/G/B 배율 계산 → SVG `#camWB` feColorMatrix를 canvas 필터로 적용(미리보기·사진·영상 모두). 세기 `CAM_WB.strength`(0.7), `?nowb`로 끔. 안드로이드 쪽은 저장값 없으면 카메라 자동 WB 강제로 켬(`UvcControls.applySaved`)
+- 자동 화이트밸런스(2026-10-03): 앱 카메라 프레임이 빨갛게 나와서 `openNativeCamera` 펌프에서 `camAutoWB()`가 0.4초마다 gray-world로 R/G/B 배율 계산 → SVG `#camWB` feColorMatrix를 canvas 필터로 적용(미리보기·사진·영상 모두). 세기 `CAM_WB.strength`(0.35, 2026-10-04 0.7→0.35: 흰 벽 많은 장면이 회색·밋밋해져서), 목표색 `CAM_WB.warm` 살짝 따뜻하게, 배율 0.9~1.12 제한, `?nowb`로 끔. 안드로이드 쪽은 저장값 없으면 카메라 자동 WB 강제로 켬(`UvcControls.applySaved`)
 - 인화 화면(2026-10-03): `#makingPrinterCss` — 기존 필름 박스 대신 실제 완성 사진(`renderComposite` 600x900)이 프린터 슬롯에서 4초간 나오며 색이 올라오는 연출, 단계 목록 컴팩트(폰·태블릿·가로 모두 화면 안)
 - WHO 날짜(2026-10-04): `#whoDays` 엊그제·어제·오늘 버튼(`WHO_DAY` 0=오늘). `loadMemberList(dayOffset)` 재정의. WHO 들어올 때 오늘 기준, 오늘 출석 0명이면 회원 있는 최근 날로 자동 이동. 시간 칩은 그날 회원 있는 시간만(회원 없으면 예전 고정 시간표 대신 "출석 기록이 없어요")
 - 앱 아이콘(2026-10-04): 적응형 아이콘 — 남색(#001A4D) 배경 + 스티커 벽돌이 `bear_14`(`res/mipmap-*/ic_launcher_fg.png`). 바꾸려면 STICKER_LIB에서 다른 bear 이미지를 뽑아 같은 크기(108dp: 108~432px, 벽돌이 폭 64dp)로 다시 생성
@@ -91,7 +91,8 @@ F45 성수 매장용 셀프 포토부스 웹앱. 삼성 갤럭시탭(세로) + O
 - WHO 화면에는 **인원수 표시 금지**(시간 칩 'N명' 배지·상태줄 'N명' 제거, 2026-10-04 요청 — 회원 수 노출 싫음)
 - 카메라 화질 리서치(2026-10-04): Link 2C가 실제로 내주는 MJPEG 모드(booth_diag 로그) = 1920x1080/1440, 1280x720/960, 세로 1088x1920·736x1280 (@60), **3840x2160@30**. USB 2.0에서도 4K 가능, 4K에선 HDR 안 됨
   - 숨은 설정 "4K 촬영 (실험)" 체크(prefs `cam_4k`) → bulk가 3840x2160 먼저, 프레임 안 오면 자동으로 1920x1440 → 1920x1080. 화면이 느려지면 끄기
-  - `UvcControls`: 깜빡임 방지(PU 0x05, 기본 2=60Hz)·줌(CT 0x0B, 기본 최소=가장 넓게) 추가, 저장값 없으면 자동 적용
+  - `UvcControls`: 깜빡임 방지(PU 0x05, 0끔/1 50Hz/2 60Hz/3자동 — 카메라 기본 3=자동 유지, 저장값 없으면 기본으로 되돌림)·줌(CT 0x0B, 기본 최소=가장 넓게) 추가, 저장값 없으면 자동 적용
   - 남은 후보: bulk 읽기를 동기 1개 → `UsbRequest` 여러 개 큐로(로그에 err=1479 프레임 손실 있었음), PROBE wCompQuality 최대로, XU9로 AI 추적/제스처 끄기(GUID faf1672d-b71b-4793-8c91-7b1c9b7f95f8)
 - 광각/세로 장착(2026-10-04): Link 2C 렌즈는 고정(대각 79.5°), 줌은 이미 최소. 세로 칸이 가로 화면 양옆을 잘라서 좁아 보임 → 카메라를 90도 눕혀 달고 `?rot=90`(또는 `-90`, 반대 방향이면) 한 번 열면 localStorage `boothCamRot`에 기억, 앱 프레임을 돌려서 세로 1440x1920으로 사용. `?rot=0` 원래대로. `CAM_ROT`/`drawCamRot()` (앱 카메라 경로만)
 - 좌우반전(2026-10-04): `CAM_MIRROR` 한 값으로 미리보기(CSS `html.noMirror`)·사진·영상·메이킹 녹화 반전을 같이 제어. 기본 true(거울). `?mirror=0` 한 번 열면 실제 방향으로 기억(localStorage `boothMirror`), `?mirror=1` 거울로
+- 2026-10-04 현장 피드백: 4K는 너무 느려서 못 씀(끔). booth_diag에 bulk `err` 수천~1만+ (bulk read timeout 반복) — 프레임은 들어오지만 원인 미확인(전원 부족·동기 bulk 읽기 의심). 다음 단계 후보: 전원 공급되는 USB-C 허브, `UsbRequest` 큐 읽기
