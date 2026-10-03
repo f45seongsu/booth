@@ -301,6 +301,8 @@ public class MainActivity extends Activity {
         @JavascriptInterface public String camStatus() { return uvc.statusJson(); }
         @JavascriptInterface public void restartCamera() { uvc.restart(); }
         @JavascriptInterface public String appVersion() { return BuildConfig.VERSION_NAME; }
+        @JavascriptInterface public String diagInfo() { return uvc.diagInfo(); }
+        @JavascriptInterface public String diagLog() { return UvcSource.recentLog(400, false); }
         @JavascriptInterface public void openSettings() { ui.post(MainActivity.this::showSettings); }
     }
 }

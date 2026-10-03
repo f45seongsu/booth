@@ -3112,6 +3112,22 @@ async function openNativeCamera(){
   var _openBestCameraWeb=openBestCamera;
   openBestCamera=function(){return nativeCamAvailable()?openNativeCamera():_openBestCameraWeb()};
   document.documentElement.classList.add('inBoothApp');
+  // 카메라 진단 정보를 Supabase booth_diag 에 자동 업로드 (캡처 없이 원격 확인용, 쓰기 전용 테이블)
+  var _diagLast=0,_diagOkSent=false;
+  window.nativeDiagUpload=function(kind,force){
+    var now=Date.now();if(!force&&now-_diagLast<45000)return;_diagLast=now;
+    try{
+      var row={app_version:BoothNative.appVersion?BoothNative.appVersion():'',kind:kind||'cam',status:nativeCamStatus(),
+        info:BoothNative.diagInfo?String(BoothNative.diagInfo()).slice(0,45000):'',log:BoothNative.diagLog?String(BoothNative.diagLog()).slice(-150000):''};
+      fetch(SB_URL+'/rest/v1/booth_diag',{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify(row)})
+        .then(function(r){console.log('[booth] diag upload',r.status)}).catch(function(e){console.warn('[booth] diag upload fail',e)});
+    }catch(e){console.warn('diag',e)}
+  };
+  setInterval(function(){
+    var st=nativeCamStatus();
+    if(st.state==='streaming'){if(!_diagOkSent){_diagOkSent=true;nativeDiagUpload('ok',true)}}
+    else nativeDiagUpload('cam');
+  },20000);
   // 카메라 오류 화면에 앱 카메라 상태를 같이 표시 (현장 진단용)
   var _showErrorWeb=showError;
   showError=function(html,retry){

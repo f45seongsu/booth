@@ -155,6 +155,7 @@ public class UvcSource implements USBMonitor.OnDeviceConnectListener {
     private long openedAt;
     private volatile String attemptDesc = "";
     private volatile String lastLog = "";
+    private volatile String supportedJson = "";
     /** {최대 가로, MJPEG만(1)/무압축(0), 대역폭 quirk 강제(1)} */
     private static final int[][] ATTEMPTS = {
             {1920, 1, 0}, {1920, 1, 1}, {1280, 1, 1}, {1280, 1, 0}, {640, 1, 1}, {640, 0, 1},
@@ -252,6 +253,7 @@ public class UvcSource implements USBMonitor.OnDeviceConnectListener {
 
             List<Size> sizes = cam.getSupportedSizeList();
             Log.i(TAG, "sizes: " + sizes);
+            try { supportedJson = cam.getSupportedSize(); } catch (Exception e) { supportedJson = "err " + e; }
             Size used = null;
             List<Size> cands = candidates(sizes);
             cands.removeIf(s -> s.width > maxW || (mjpegOnly != (s.type == UVCCamera.UVC_VS_FRAME_MJPEG)));
@@ -497,6 +499,40 @@ public class UvcSource implements USBMonitor.OnDeviceConnectListener {
             out.add("logcat 실패: " + e);
         }
         return String.join("\n", out);
+    }
+
+    /** 기기·USB 장치 상세 정보 (원격 진단용) */
+    public String diagInfo() {
+        StringBuilder b = new StringBuilder();
+        b.append("device: ").append(android.os.Build.MANUFACTURER).append(' ').append(android.os.Build.MODEL)
+                .append(" | hw=").append(android.os.Build.HARDWARE).append(" board=").append(android.os.Build.BOARD)
+                .append(" | android ").append(android.os.Build.VERSION.RELEASE).append(" sdk ").append(android.os.Build.VERSION.SDK_INT);
+        if (android.os.Build.VERSION.SDK_INT >= 31) b.append(" | soc=").append(android.os.Build.SOC_MANUFACTURER).append(' ').append(android.os.Build.SOC_MODEL);
+        b.append("\nrecommendedQuirks=").append(UVCCamera.getRecommendedPlatformQuirks());
+        b.append("\nattempt=").append(attemptDesc).append(" state=").append(state).append(" err=").append(error);
+        try {
+            android.hardware.usb.UsbManager um = (android.hardware.usb.UsbManager) ctx.getSystemService(Context.USB_SERVICE);
+            for (UsbDevice d : um.getDeviceList().values()) {
+                b.append("\n\nUSB ").append(describe(d)).append(" name=").append(d.getDeviceName())
+                        .append(" class=").append(d.getDeviceClass()).append('/').append(d.getDeviceSubclass())
+                        .append(" ver=").append(d.getVersion()).append(" perm=").append(um.hasPermission(d))
+                        .append(" mfr=").append(d.getManufacturerName());
+                for (int i = 0; i < d.getInterfaceCount(); i++) {
+                    android.hardware.usb.UsbInterface itf = d.getInterface(i);
+                    b.append("\n  if").append(itf.getId()).append(" alt").append(itf.getAlternateSetting())
+                            .append(" class=").append(itf.getInterfaceClass()).append('/').append(itf.getInterfaceSubclass());
+                    for (int e = 0; e < itf.getEndpointCount(); e++) {
+                        android.hardware.usb.UsbEndpoint ep = itf.getEndpoint(e);
+                        b.append(" [ep").append(Integer.toHexString(ep.getAddress())).append(" t").append(ep.getType())
+                                .append(" mps").append(ep.getMaxPacketSize()).append(" iv").append(ep.getInterval()).append(']');
+                    }
+                }
+            }
+        } catch (Exception e) {
+            b.append("\nusb dump err ").append(e);
+        }
+        b.append("\n\nsupported: ").append(supportedJson);
+        return b.toString();
     }
 
     public String statusJson() {

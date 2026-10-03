@@ -78,3 +78,4 @@ F45 성수 매장용 셀프 포토부스 웹앱. 삼성 갤럭시탭(세로) + O
 - USB 권한: 카메라 꽂을 때 "F45 Booth → 항상" 고르면 계속 유지 (`res/xml/device_filter.xml`). Insta360은 마이크 내장이라 앱에 RECORD_AUDIO 권한이 없으면 "항상"이 회색으로 막힘 → 권한 유지 필수(녹음은 안 함)
 - 빌드: `.github/workflows/android.yml` — `android/**` 바뀌면 자동 빌드. main이면 https://github.com/f45seongsu/booth/releases/download/android-latest/f45-booth.apk 로 올라감. 서명 키 `android/booth.keystore`(사이드로드용, 같은 키라 위에 덮어 설치 가능)
 - 디버깅: PC 크롬 `chrome://inspect`로 앱 WebView 콘솔 확인 가능, JS에서 `BoothNative.camStatus()`
+- 원격 진단: 앱 안에서 카메라가 안 잡히면 20초마다(최대 45초에 1번) Supabase `booth_diag` 테이블에 상태·기기/USB 정보·로그 자동 업로드(성공 시 'ok' 1번). anon은 insert만 가능(RLS, 읽기 불가) → Claude는 Supabase MCP `execute_sql`로 조회
