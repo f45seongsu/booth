@@ -81,3 +81,5 @@ F45 성수 매장용 셀프 포토부스 웹앱. 삼성 갤럭시탭(세로) + O
 - 디버깅: PC 크롬 `chrome://inspect`로 앱 WebView 콘솔 확인 가능, JS에서 `BoothNative.camStatus()`
 - 원격 진단: 앱 안에서 카메라가 안 잡히면 20초마다(최대 45초에 1번) Supabase `booth_diag` 테이블에 상태·기기/USB 정보·로그 자동 업로드(성공 시 'ok' 1번). anon은 insert만 가능(RLS, 읽기 불가) → Claude는 Supabase MCP `execute_sql`로 조회
 - 시작화면 크게(2026-10-03): `#welcomeBigCss` — 성수 로고 높이 clamp(56px,min(10vw,6.5vh),120px), 제목 clamp(80px,min(21vw,11.5vh),250px), 벽돌이 오른쪽 min(44vw,28vh)/왼쪽 min(32vw,21vh), 문구 블록 margin-bottom 15vh(벽돌이와 안 겹치게). `?font=gotham`이면 제목·스티커·버튼을 Montserrat(Gotham 무료 대체)로 미리보기
+- 화질(2026-10-03): bulk 모드는 **1920x1440(4:3) 우선**(세로 네컷 칸 화소 최대) → 1920x1080 → 1280x720. 최종 사진 `FINAL_SCALE=1.5` → 1800x2700. 숨은 설정 → "카메라 화질 조정": `UvcControls.java`가 UVC 제어(자동노출·노출시간·밝기·대비·채도·선명도·감마·역광보정·게인·자동WB·색온도)를 직접 설정, 값은 prefs `uvc_*`에 저장돼 카메라 열 때마다 자동 적용
+- 태블릿 세로 화면 다듬기(2026-10-03): `#portraitPolishCss` (orientation:portrait and min-width:601px) — 결과(사진 50vh 크게, 중복 제목 숨김, QR+FINISH 한 줄, 벽돌이 숨김)·마무리·프레임·메이킹·오류 화면 글씨/버튼/벽돌이 확대. 폰(≤600px)은 기존 규칙 그대로

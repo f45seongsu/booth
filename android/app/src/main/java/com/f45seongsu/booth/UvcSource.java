@@ -57,6 +57,9 @@ public class UvcSource implements USBMonitor.OnDeviceConnectListener {
     private USBMonitor monitor;
     private UVCCamera camera;
     private BulkUvc bulk;       // bulk 전송 카메라 직접 읽기 (Insta360 Link 2C)
+    private volatile UvcControls controls;   // 화질 조정 (bulk 모드에서만)
+    UvcControls controls() { return controls; }
+    android.content.SharedPreferences prefs() { return ctx.getSharedPreferences("booth", Context.MODE_PRIVATE); }
     private boolean active() { return camera != null || bulk != null; }
     private UsbDevice device;
     private ImageReader sink;   // 라이브러리가 요구하는 미리보기 Surface (화면에 안 보임, 받자마자 버림)
@@ -316,7 +319,8 @@ public class UvcSource implements USBMonitor.OnDeviceConnectListener {
             if (c == null) { error = "USB 연결 못 엶"; return false; }
             BulkUvc b = BulkUvc.create(d, c, this::onBulkJpeg);
             if (b == null) return false;                 // isochronous 카메라 → 라이브러리
-            int[][] sizes = {{1920, 1080}, {1280, 720}, {1920, 1080}};
+            // 1920x1440(4:3)이 세로 네컷 칸에 쓸 수 있는 화소가 가장 많음 → 우선
+            int[][] sizes = {{1920, 1440}, {1920, 1080}, {1280, 720}};
             int[] want = sizes[Math.min(noFrameOpens, sizes.length - 1)];
             BulkUvc.Mode m = b.pickMode(want[0], want[1]);
             attemptDesc = "bulk#" + (noFrameOpens + 1) + " " + (m != null ? m.toString() : "모드 없음");
@@ -333,6 +337,10 @@ public class UvcSource implements USBMonitor.OnDeviceConnectListener {
                 return false;
             }
             bulk = b;
+            try {
+                UvcControls uc = UvcControls.probe(c);
+                if (uc != null) { uc.applySaved(prefs()); controls = uc; Log.i(TAG, "controls " + uc.summary()); }
+            } catch (Exception e) { Log.w(TAG, "controls", e); }
             openedAt = SystemClock.elapsedRealtime();
             state = "starting";
             Log.i(TAG, "bulk preview " + m);
@@ -368,6 +376,7 @@ public class UvcSource implements USBMonitor.OnDeviceConnectListener {
     private void closeCamera() {
         BulkUvc b = bulk;
         bulk = null;
+        controls = null;
         if (b != null) { try { b.stop(); } catch (Exception ignored) {} }
         UVCCamera cam = camera;
         camera = null;
@@ -597,6 +606,8 @@ public class UvcSource implements USBMonitor.OnDeviceConnectListener {
         } catch (Exception e) {
             b.append("\nusb dump err ").append(e);
         }
+        UvcControls uc = controls;
+        if (uc != null) b.append("\ncontrols: ").append(uc.summary());
         b.append("\n\nsupported: ").append(supportedJson);
         return b.toString();
     }

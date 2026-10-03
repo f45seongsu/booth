@@ -222,6 +222,10 @@ public class MainActivity extends Activity {
         url.setText(startUrl());
         box.addView(url);
 
+        android.widget.Button q = new android.widget.Button(this);
+        q.setText("카메라 화질 조정 (밝기·노출·색감)");
+        box.addView(q);
+
         AlertDialog dlg = new AlertDialog.Builder(this)
                 .setTitle("포토부스 설정")
                 .setView(box)
@@ -234,8 +238,77 @@ public class MainActivity extends Activity {
                 .setNeutralButton("카메라 로그", (d, w) -> showLog())
                 .setNegativeButton("새로고침", (d, w) -> { web.clearCache(true); web.loadUrl(startUrl()); })
                 .create();
+        q.setOnClickListener(v -> { dlg.dismiss(); showQuality(); });
         dlg.setOnDismissListener(d -> hideSystemBars());
         dlg.show();
+    }
+
+    /** 화질 조정: 화면 아래쪽 반투명 패널, 움직이면 바로 적용·저장 (뒤 미리보기 보면서 조정) */
+    private void showQuality() {
+        UvcControls uc = uvc.controls();
+        if (uc == null) {
+            new AlertDialog.Builder(this).setTitle("화질 조정").setMessage("카메라가 연결된 뒤에 다시 열어주세요.\n" + uvc.stateText())
+                    .setPositiveButton("닫기", null).show();
+            return;
+        }
+        SharedPreferences p = uvc.prefs();
+        float dp = getResources().getDisplayMetrics().density;
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding((int) (16 * dp), (int) (8 * dp), (int) (16 * dp), (int) (8 * dp));
+        TextView hint = new TextView(this);
+        hint.setText("촬영 화면을 보면서 조정하세요. 값은 자동 저장되고 다음에 켤 때도 적용돼요.");
+        box.addView(hint);
+        for (UvcControls.Ctl k : uc.list) {
+            if (!k.ok) continue;
+            if (k.toggle) {
+                android.widget.CheckBox cb = new android.widget.CheckBox(this);
+                cb.setText(k.label);
+                cb.setChecked(uc.isOn(k));
+                cb.setOnCheckedChangeListener((b, on) -> {
+                    if (uc.set(k, on ? 1 : 0)) p.edit().putInt("uvc_" + k.key, on ? 1 : 0).apply();
+                });
+                box.addView(cb);
+                continue;
+            }
+            TextView lbl = new TextView(this);
+            lbl.setText(k.label + "  " + k.cur + "  (기본 " + k.def + ")");
+            lbl.setPadding(0, (int) (6 * dp), 0, 0);
+            box.addView(lbl);
+            android.widget.SeekBar sb = new android.widget.SeekBar(this);
+            sb.setMax(k.max - k.min);
+            sb.setProgress(k.cur - k.min);
+            sb.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
+                @Override public void onProgressChanged(android.widget.SeekBar s, int v, boolean user) {
+                    if (!user) return;
+                    int val = k.min + v;
+                    if (uc.set(k, val)) {
+                        p.edit().putInt("uvc_" + k.key, val).apply();
+                        lbl.setText(k.label + "  " + val + "  (기본 " + k.def + ")");
+                    }
+                }
+                @Override public void onStartTrackingTouch(android.widget.SeekBar s) {}
+                @Override public void onStopTrackingTouch(android.widget.SeekBar s) {}
+            });
+            box.addView(sb);
+        }
+        android.widget.ScrollView sv = new android.widget.ScrollView(this);
+        sv.addView(box);
+        AlertDialog dlg = new AlertDialog.Builder(this)
+                .setTitle("카메라 화질 조정")
+                .setView(sv)
+                .setPositiveButton("완료", null)
+                .setNeutralButton("기본값으로", (d, w) -> uc.resetDefaults(p))
+                .create();
+        dlg.setOnDismissListener(d -> hideSystemBars());
+        dlg.show();
+        android.view.Window w = dlg.getWindow();
+        if (w != null) {
+            w.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+            w.setGravity(android.view.Gravity.BOTTOM);
+            w.setLayout(WindowManager.LayoutParams.MATCH_PARENT, (int) (getResources().getDisplayMetrics().heightPixels * 0.45f));
+            w.setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(0xEEFFFFFF));
+        }
     }
 
     /** 카메라 로그(오류 원인 확인용) — 사진 찍어서 보내면 됨 */

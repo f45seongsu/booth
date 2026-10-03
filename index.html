@@ -3159,4 +3159,64 @@ async function openNativeCamera(){
     document.documentElement.classList.add('fontGotham');
   }
 }catch(e){console.warn('welcome big',e)} })();
+
+/* ===== 최종 사진 고해상도 (2026-10-03): 1200x1800 → 1800x2700 (renderComposite는 W 비율로 그려짐) ===== */
+var FINAL_SCALE=1.5;
+composeFinal=async function(){
+  const c=document.createElement('canvas');c.width=Math.round(PRINT_LAYOUT.W*FINAL_SCALE);c.height=Math.round(PRINT_LAYOUT.H*FINAL_SCALE);
+  await renderComposite(c.getContext('2d'),c.width,c.height,true);return c;
+};
+
+/* ===== 태블릿 세로 화면 다듬기 (2026-10-03): 결과·마무리·프레임·메이킹·오류 화면을 세로에 맞게 크게 ===== */
+(function(){ try{
+  var css=`
+  @media (orientation:portrait) and (min-width:601px){
+    .screen .top .eyebrow{font-size:clamp(13px,1.8vw,18px)!important;letter-spacing:.2em!important}
+    .screen .top .sticker{font-size:clamp(16px,2.4vw,24px)!important;padding:.45em .9em!important}
+    /* --- 결과 --- */
+    #result{display:flex!important;flex-direction:column;overflow:hidden}
+    #result .bigTitle{font-size:clamp(56px,10vw,110px)!important;line-height:.85!important}
+    #result .resultWrap{flex:1 1 auto;min-height:0;display:flex!important;flex-direction:column;align-items:center;justify-content:center;gap:2.2vh;padding:0 5vw 3vh!important;margin:0!important;grid-template-columns:none!important;width:auto!important;max-width:none!important}
+    #result #finalPrint{flex:0 0 auto;transform:rotate(-2deg)}
+    #result #finalPrint.hasImg{width:auto!important;height:50vh!important;padding:.6rem!important}
+    #result #finalPrint.hasImg img{height:100%!important;width:auto!important}
+    #result #finalPrint:not(.hasImg){width:min(60vw,46vh)!important}
+    #result .resultCopy{display:grid!important;grid-template-columns:auto auto;align-items:center;justify-content:center;column-gap:4vw;row-gap:1.6vh;text-align:left}
+    #result .resultCopy h1{display:none!important}
+    #result .resultCopy .sub{grid-column:1/-1;text-align:center;font-size:clamp(18px,2.8vw,28px)!important;font-weight:800;margin:0!important;line-height:1.4}
+    #result .qrBox{grid-column:1;margin:0!important;gap:1.6vw!important}
+    #result #qrCode{width:clamp(150px,22vw,230px)!important;height:clamp(150px,22vw,230px)!important;margin:0!important}
+    #result .qrCaption{font-size:clamp(16px,2.4vw,24px)!important}
+    #result .resultCopy>.sticker{display:none!important}
+    #result .resultCopy>div:last-child{grid-column:2;margin:0!important}
+    #result .resultCopy .btn{font-size:clamp(24px,3.6vw,36px)!important;padding:.65em 1.4em!important}
+    #result .resultBear{display:none!important}
+    /* --- 마무리 --- */
+    #end .endWrap{padding-top:16vh!important}
+    #end .endWrap .endSticker{font-size:clamp(18px,2.8vw,28px)!important}
+    #end .endWrap h1{font-size:clamp(90px,19vw,200px)!important;margin:2vh 0!important}
+    #end .endWrap .sub{font-size:clamp(20px,3.2vw,32px)!important;font-weight:800}
+    #end .endWrap .btn{font-size:clamp(22px,3.4vw,34px)!important;padding:.65em 1.5em!important}
+    #end .endBear{width:min(56vw,36vh)!important;height:min(56vw,36vh)!important;max-width:none!important;max-height:none!important;bottom:2vh!important}
+    /* --- 프레임 고르기 --- */
+    #frame .fName{font-size:clamp(26px,4vw,40px)!important}
+    #frame .fHint{font-size:clamp(15px,2.2vw,20px)!important}
+    #frame .fActions{display:flex;gap:3vw;justify-content:center;margin:1vh 0 2vh!important}
+    #frame .fActions .btn{font-size:clamp(22px,3.2vw,32px)!important;padding:.6em 1.3em!important}
+    /* --- 메이킹 --- */
+    #making .top h1{font-size:clamp(52px,9vw,100px)!important}
+    #making .film{width:min(78vw,620px)!important;height:auto!important;aspect-ratio:16/10}
+    #making .makingWrap{margin-top:2vh!important}
+    #making .film p{font-size:clamp(16px,2.4vw,22px)!important}
+    #making .makingSteps{width:min(80vw,640px)!important;gap:1.6vh!important}
+    #making .makingSteps li{font-size:clamp(18px,2.8vw,26px)!important;padding:1.1rem 1.4rem!important}
+    #making .makingSteps li i{width:2.2rem;height:2.2rem}
+    /* --- 오류 --- */
+    #error .errorWrap h1{font-size:clamp(80px,15vw,170px)!important}
+    #error .errorMsg{font-size:clamp(20px,3.2vw,32px)!important}
+    #error .errorBtns .btn{font-size:clamp(24px,3.8vw,36px)!important;padding:.7em 1.5em!important}
+    #error .errorBear{width:min(40vw,26vh)!important;height:min(40vw,26vh)!important}
+  }`;
+  var st=document.createElement('style');st.id='portraitPolishCss';st.textContent=css;document.head.appendChild(st);
+}catch(e){console.warn('portrait polish',e)} })();
 </script></html>
