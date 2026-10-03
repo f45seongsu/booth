@@ -94,3 +94,4 @@ F45 성수 매장용 셀프 포토부스 웹앱. 삼성 갤럭시탭(세로) + O
   - `UvcControls`: 깜빡임 방지(PU 0x05, 기본 2=60Hz)·줌(CT 0x0B, 기본 최소=가장 넓게) 추가, 저장값 없으면 자동 적용
   - 남은 후보: bulk 읽기를 동기 1개 → `UsbRequest` 여러 개 큐로(로그에 err=1479 프레임 손실 있었음), PROBE wCompQuality 최대로, XU9로 AI 추적/제스처 끄기(GUID faf1672d-b71b-4793-8c91-7b1c9b7f95f8)
 - 광각/세로 장착(2026-10-04): Link 2C 렌즈는 고정(대각 79.5°), 줌은 이미 최소. 세로 칸이 가로 화면 양옆을 잘라서 좁아 보임 → 카메라를 90도 눕혀 달고 `?rot=90`(또는 `-90`, 반대 방향이면) 한 번 열면 localStorage `boothCamRot`에 기억, 앱 프레임을 돌려서 세로 1440x1920으로 사용. `?rot=0` 원래대로. `CAM_ROT`/`drawCamRot()` (앱 카메라 경로만)
+- 좌우반전(2026-10-04): `CAM_MIRROR` 한 값으로 미리보기(CSS `html.noMirror`)·사진·영상·메이킹 녹화 반전을 같이 제어. 기본 true(거울). `?mirror=0` 한 번 열면 실제 방향으로 기억(localStorage `boothMirror`), `?mirror=1` 거울로
