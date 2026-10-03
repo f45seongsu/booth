@@ -5,11 +5,12 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- 안드로이드 10+에서 USB UVC 카메라를 열려면 CAMERA 권한이 필요 -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Insta360 Link 2C 등 마이크 달린 카메라는 이 권한이 없으면 USB 연결 창의 "항상"이 비활성화됨 (녹음은 안 함) -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-feature android:name="android.hardware.usb.host" android:required="true" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <!-- UVC 라이브러리가 같이 요청하는 권한 중 포토부스에 필요 없는 것 제거 -->
-    <uses-permission android:name="android.permission.RECORD_AUDIO" tools:node="remove" />
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" tools:node="remove" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" tools:node="remove" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" tools:node="remove" />

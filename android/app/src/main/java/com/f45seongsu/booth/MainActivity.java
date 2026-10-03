@@ -101,8 +101,10 @@ public class MainActivity extends Activity {
         else web.loadUrl(startUrl());
 
         // 안드로이드 10+는 USB 카메라를 열 때 CAMERA 권한이 먼저 있어야 함
-        if (Build.VERSION.SDK_INT >= 23 && checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[]{Manifest.permission.CAMERA}, REQ_CAMERA);
+        // 마이크 달린 USB 카메라는 RECORD_AUDIO 도 있어야 USB 연결 창에서 "항상"을 고를 수 있음
+        if (Build.VERSION.SDK_INT >= 23 && (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED
+                || checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED)) {
+            requestPermissions(new String[]{Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO}, REQ_CAMERA);
         } else {
             uvc.start();
         }

@@ -75,6 +75,6 @@ F45 성수 매장용 셀프 포토부스 웹앱. 삼성 갤럭시탭(세로) + O
 - index.html 맨 끝 블록: `window.BoothNative` 있으면 `openBestCamera`가 `openNativeCamera()`(canvas + `captureStream(30)`)를 씀. 일반 브라우저에선 기존 getUserMedia 그대로
 - 키오스크: 화면 꺼짐 방지, 뒤로가기 막음, 세로 고정, 시스템바 숨김, 외부 링크 차단
 - 숨은 설정: 화면 **왼쪽 위 모서리 5번 탭** → 시작 주소(최초 1회 `?key=토큰` 붙여 저장), 카메라 다시 연결, 새로고침, 카메라 상태
-- USB 권한: 카메라 꽂을 때 "F45 Booth로 열기 → 항상" 체크하면 계속 유지 (`res/xml/device_filter.xml`)
+- USB 권한: 카메라 꽂을 때 "F45 Booth → 항상" 고르면 계속 유지 (`res/xml/device_filter.xml`). Insta360은 마이크 내장이라 앱에 RECORD_AUDIO 권한이 없으면 "항상"이 회색으로 막힘 → 권한 유지 필수(녹음은 안 함)
 - 빌드: `.github/workflows/android.yml` — `android/**` 바뀌면 자동 빌드. main이면 https://github.com/f45seongsu/booth/releases/download/android-latest/f45-booth.apk 로 올라감. 서명 키 `android/booth.keystore`(사이드로드용, 같은 키라 위에 덮어 설치 가능)
 - 디버깅: PC 크롬 `chrome://inspect`로 앱 WebView 콘솔 확인 가능, JS에서 `BoothNative.camStatus()`
