@@ -122,6 +122,7 @@ public class UvcSource implements USBMonitor.OnDeviceConnectListener {
         worker.post(() -> {
             closeCamera();
             device = null;
+            noFrameOpens = 0;   // 직접 다시 연결하면 처음 해상도부터
             state = "searching";
             pickAndRequest();
         });
@@ -320,7 +321,10 @@ public class UvcSource implements USBMonitor.OnDeviceConnectListener {
             BulkUvc b = BulkUvc.create(d, c, this::onBulkJpeg);
             if (b == null) return false;                 // isochronous 카메라 → 라이브러리
             // 1920x1440(4:3)이 세로 네컷 칸에 쓸 수 있는 화소가 가장 많음 → 우선
-            int[][] sizes = {{1920, 1440}, {1920, 1080}, {1280, 720}};
+            // 숨은 설정 "4K 촬영(실험)" 켜면 3840x2160 먼저 (세로 칸 1728x2160 → 화소 2배 이상). 안 되면 자동으로 아래 해상도
+            int[][] sizes = prefs().getBoolean("cam_4k", false)
+                    ? new int[][]{{3840, 2160}, {1920, 1440}, {1920, 1080}}
+                    : new int[][]{{1920, 1440}, {1920, 1080}, {1280, 720}};
             int[] want = sizes[Math.min(noFrameOpens, sizes.length - 1)];
             BulkUvc.Mode m = b.pickMode(want[0], want[1]);
             attemptDesc = "bulk#" + (noFrameOpens + 1) + " " + (m != null ? m.toString() : "모드 없음");

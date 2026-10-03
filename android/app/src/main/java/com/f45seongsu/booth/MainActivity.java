@@ -226,6 +226,16 @@ public class MainActivity extends Activity {
         q.setText("카메라 화질 조정 (밝기·노출·색감)");
         box.addView(q);
 
+        android.widget.CheckBox k4 = new android.widget.CheckBox(this);
+        k4.setText("4K 촬영 (실험) — 사진 더 선명, 화면이 느려지면 끄기");
+        k4.setChecked(uvc.prefs().getBoolean("cam_4k", false));
+        k4.setOnCheckedChangeListener((b, on) -> {
+            uvc.prefs().edit().putBoolean("cam_4k", on).apply();
+            uvc.restart();
+            android.widget.Toast.makeText(this, on ? "4K로 카메라 다시 연결" : "1920x1440으로 카메라 다시 연결", android.widget.Toast.LENGTH_SHORT).show();
+        });
+        box.addView(k4);
+
         AlertDialog dlg = new AlertDialog.Builder(this)
                 .setTitle("포토부스 설정")
                 .setView(box)
