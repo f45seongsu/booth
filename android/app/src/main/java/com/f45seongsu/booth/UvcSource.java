@@ -137,6 +137,7 @@ public class UvcSource implements USBMonitor.OnDeviceConnectListener {
                             noFrameOpens++;   // 한 장도 못 받음 → 다음엔 해상도 낮춰봄
                             error = "프레임 없음 (콜백 " + cbs + ", 재시도 " + noFrameOpens + ")";
                         }
+                        lastLog = recentLog(4, true);
                         UsbDevice d = device;
                         closeCamera();
                         state = "reconnecting";
@@ -153,6 +154,7 @@ public class UvcSource implements USBMonitor.OnDeviceConnectListener {
     };
     private long openedAt;
     private volatile String attemptDesc = "";
+    private volatile String lastLog = "";
     /** {최대 가로, MJPEG만(1)/무압축(0), 대역폭 quirk 강제(1)} */
     private static final int[][] ATTEMPTS = {
             {1920, 1, 0}, {1920, 1, 1}, {1280, 1, 1}, {1280, 1, 0}, {640, 1, 1}, {640, 0, 1},
@@ -466,6 +468,37 @@ public class UvcSource implements USBMonitor.OnDeviceConnectListener {
         }
     }
 
+    /**
+     * 이 앱 프로세스의 logcat에서 카메라 관련 경고/오류 줄만 뽑음 (현장 진단용).
+     * 네이티브 UVC 라이브러리(libuvc/libusb/UVCPreview) 로그도 여기 같이 찍힘.
+     */
+    public static String recentLog(int maxLines, boolean errorsOnly) {
+        java.util.ArrayDeque<String> out = new java.util.ArrayDeque<>();
+        try {
+            Process p = Runtime.getRuntime().exec(new String[]{
+                    "logcat", "-d", "-v", "brief", "-t", "1500", "--pid=" + android.os.Process.myPid()});
+            java.io.BufferedReader r = new java.io.BufferedReader(new java.io.InputStreamReader(p.getInputStream()));
+            String line;
+            while ((line = r.readLine()) != null) {
+                if (line.length() < 3 || line.charAt(1) != '/') continue;
+                char lv = line.charAt(0);
+                String low = line.toLowerCase(java.util.Locale.US);
+                if (low.contains("chromium") || low.contains("cr_") || low.contains("[js]")) continue;
+                boolean cam = low.contains("uvc") || low.contains("usb") || low.contains("booth") || low.contains("preview")
+                        || low.contains("stream") || low.contains("frame") || low.contains("camera");
+                if (!cam) continue;
+                if (errorsOnly && lv != 'E' && lv != 'W' && lv != 'F') continue;
+                out.addLast(line.length() > 220 ? line.substring(0, 220) : line);
+                if (out.size() > maxLines) out.removeFirst();
+            }
+            r.close();
+            p.destroy();
+        } catch (Exception e) {
+            out.add("logcat 실패: " + e);
+        }
+        return String.join("\n", out);
+    }
+
     public String statusJson() {
         try {
             JSONObject o = new JSONObject();
@@ -486,6 +519,7 @@ public class UvcSource implements USBMonitor.OnDeviceConnectListener {
             long sk; synchronized (lock) { sk = sinkFrames; }
             o.put("sink", sk);
             o.put("attempt", attemptDesc);
+            o.put("log", lastLog);
             o.put("lastFrameMs", last > 0 ? SystemClock.elapsedRealtime() - last : -1);
             o.put("restarts", restarts);
             return o.toString();

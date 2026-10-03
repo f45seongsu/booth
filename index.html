@@ -3116,7 +3116,7 @@ async function openNativeCamera(){
   var _showErrorWeb=showError;
   showError=function(html,retry){
     if(/카메라/.test(html||'')){var s=nativeCamStatus();
-      html+='<br><small style="font-size:.55em;opacity:.75">[앱 '+(BoothNative.appVersion?BoothNative.appVersion():'')+' · '+(s.state||'?')+(s.device?' · '+s.device:'')+(s.error?' · '+s.error:'')+(s.width?' · '+s.width+'x'+s.height:'')+(s.callbacks!=null?' · cb '+s.callbacks+'/'+(s.sink||0)+'/'+s.frames:'')+(s.attempt?' · '+s.attempt:'')+']</small>';}
+      html+='<br><small style="font-size:.55em;opacity:.75">[앱 '+(BoothNative.appVersion?BoothNative.appVersion():'')+' · '+(s.state||'?')+(s.device?' · '+s.device:'')+(s.error?' · '+s.error:'')+(s.width?' · '+s.width+'x'+s.height:'')+(s.callbacks!=null?' · cb '+s.callbacks+'/'+(s.sink||0)+'/'+s.frames:'')+(s.attempt?' · '+s.attempt:'')+']'+(s.log?'<br><span style="font-size:.85em;white-space:pre-wrap;word-break:break-all;display:inline-block;text-align:left;max-width:92vw">'+String(s.log).replace(/[<&]/g,'')+'</span>':'')+'</small>';}
     return _showErrorWeb(html,retry);
   };
 })();

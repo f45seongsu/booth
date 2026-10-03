@@ -231,8 +231,28 @@ public class MainActivity extends Activity {
                     prefs.edit().putString("url", u).apply();
                     web.loadUrl(u);
                 })
-                .setNeutralButton("카메라 다시 연결", (d, w) -> uvc.restart())
+                .setNeutralButton("카메라 로그", (d, w) -> showLog())
                 .setNegativeButton("새로고침", (d, w) -> { web.clearCache(true); web.loadUrl(startUrl()); })
+                .create();
+        dlg.setOnDismissListener(d -> hideSystemBars());
+        dlg.show();
+    }
+
+    /** 카메라 로그(오류 원인 확인용) — 사진 찍어서 보내면 됨 */
+    private void showLog() {
+        TextView tv = new TextView(this);
+        int pad = (int) (12 * getResources().getDisplayMetrics().density);
+        tv.setPadding(pad, pad, pad, pad);
+        tv.setTextSize(11);
+        tv.setTextIsSelectable(true);
+        tv.setText(uvc.stateText() + "\n\n" + uvc.statusJson() + "\n\n" + UvcSource.recentLog(40, false));
+        android.widget.ScrollView sv = new android.widget.ScrollView(this);
+        sv.addView(tv);
+        AlertDialog dlg = new AlertDialog.Builder(this)
+                .setTitle("카메라 로그")
+                .setView(sv)
+                .setPositiveButton("닫기", null)
+                .setNeutralButton("카메라 다시 연결", (d, w) -> uvc.restart())
                 .create();
         dlg.setOnDismissListener(d -> hideSystemBars());
         dlg.show();
