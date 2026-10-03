@@ -85,3 +85,5 @@ F45 성수 매장용 셀프 포토부스 웹앱. 삼성 갤럭시탭(세로) + O
 - 태블릿 세로 화면 다듬기(2026-10-03): `#portraitPolishCss` (orientation:portrait and min-width:601px) — 결과(사진 50vh 크게, 중복 제목 숨김, QR+FINISH 한 줄, 벽돌이 숨김)·마무리·프레임·메이킹·오류 화면 글씨/버튼/벽돌이 확대. 폰(≤600px)은 기존 규칙 그대로
 - 자동 화이트밸런스(2026-10-03): 앱 카메라 프레임이 빨갛게 나와서 `openNativeCamera` 펌프에서 `camAutoWB()`가 0.4초마다 gray-world로 R/G/B 배율 계산 → SVG `#camWB` feColorMatrix를 canvas 필터로 적용(미리보기·사진·영상 모두). 세기 `CAM_WB.strength`(0.7), `?nowb`로 끔. 안드로이드 쪽은 저장값 없으면 카메라 자동 WB 강제로 켬(`UvcControls.applySaved`)
 - 인화 화면(2026-10-03): `#makingPrinterCss` — 기존 필름 박스 대신 실제 완성 사진(`renderComposite` 600x900)이 프린터 슬롯에서 4초간 나오며 색이 올라오는 연출, 단계 목록 컴팩트(폰·태블릿·가로 모두 화면 안)
+- WHO 날짜(2026-10-04): `#whoDays` 엊그제·어제·오늘 버튼(`WHO_DAY` 0=오늘). `loadMemberList(dayOffset)` 재정의. WHO 들어올 때 오늘 기준, 오늘 출석 0명이면 회원 있는 최근 날로 자동 이동. 시간 칩은 그날 회원 있는 시간만(회원 없으면 예전 고정 시간표 대신 "출석 기록이 없어요")
+- 앱 아이콘(2026-10-04): 적응형 아이콘 — 남색(#001A4D) 배경 + 스티커 벽돌이 `bear_14`(`res/mipmap-*/ic_launcher_fg.png`). 바꾸려면 STICKER_LIB에서 다른 bear 이미지를 뽑아 같은 크기(108dp: 108~432px, 벽돌이 폭 64dp)로 다시 생성

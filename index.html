@@ -3307,4 +3307,84 @@ composeFinal=async function(){
     return _startMakingOrig.apply(this,arguments);
   };
 }catch(e){console.warn('making printer css',e)} })();
+
+/* ===== WHO: 날짜 고르기(엊그제·어제·오늘) + 회원 있는 시간만 (2026-10-04) =====
+   자정이 지나 오늘 출석이 0명이면 예전 고정 시간표(회원 없는 시간)가 그대로 남던 문제 수정.
+   WHO 들어올 때는 오늘 기준, 오늘이 비었으면 회원 있는 가장 최근 날로 자동 이동. */
+var WHO_DAY=0,WHO_DAY_AUTO=true,_whoDayBusy=false;
+var WHO_DAY_NAMES=['오늘','어제','엊그제'];
+function whoDayDate(n){return kstDate(new Date(Date.now()-n*864e5))}
+function whoDayLabel(n){var d=whoDayDate(n),dt=new Date(d+'T12:00:00Z');return (dt.getUTCMonth()+1)+'/'+dt.getUTCDate()+' ('+'일월화수목금토'[dt.getUTCDay()]+')'}
+loadMemberList=async function(dayOffset){
+  if(!sb)return null;
+  var day=whoDayDate(dayOffset==null?WHO_DAY:dayOffset);
+  var res=await sb.from('attendance').select('glofox_user_id,class_time,status,attended,class_name')
+    .gte('class_time',day+'T00:00:00Z').lte('class_time',day+'T23:59:59Z').limit(1000);
+  if(res.error)throw res.error;
+  var rows=(res.data||[]).filter(function(a){return a.attended||String(a.status||'').toUpperCase()!=='CANCELED'});
+  var timesByUid={};
+  rows.forEach(function(a){var hm=kstHM(a.class_time);(timesByUid[a.glofox_user_id]=timesByUid[a.glofox_user_id]||new Set()).add(hm);if(a.class_name)classNameByTime[hm]=a.class_name});
+  var uids=Object.keys(timesByUid);if(!uids.length)return [];
+  var people=[];
+  for(var i=0;i<uids.length;i+=200){
+    var r2=await sb.from('people').select('glofox_user_id,name,name_override,phone').in('glofox_user_id',uids.slice(i,i+200));
+    if(r2.error)throw r2.error;people=people.concat(r2.data||[]);
+  }
+  return people.map(function(p){return {id:p.glofox_user_id,name:(p.name_override||fixKoreanOrder(p.name)||'').trim(),phone:(p.phone||'').replace(/\D/g,''),times:[...(timesByUid[p.glofox_user_id]||[])].sort()}})
+    .filter(function(m){return m.name}).sort(function(a,b){return a.name.localeCompare(b.name,'ko')});
+};
+function renderWhoDays(){
+  var L=document.querySelector('#who .whoTimes');if(!L)return;
+  var bar=document.getElementById('whoDays');
+  if(!bar){bar=document.createElement('div');bar.id='whoDays';var head=L.querySelector('.whoColHead');L.insertBefore(bar,head?head.nextSibling:L.firstChild)}
+  bar.innerHTML='';
+  [2,1,0].forEach(function(n){
+    var b=document.createElement('button');b.type='button';b.className='whoDay'+(n===WHO_DAY?' on':'');b.disabled=_whoDayBusy;
+    b.innerHTML='<b>'+WHO_DAY_NAMES[n]+'</b><small>'+whoDayLabel(n)+'</small>';
+    b.onclick=function(){if(_whoDayBusy||n===WHO_DAY)return;WHO_DAY=n;WHO_DAY_AUTO=false;hydrateMemberGrid()};
+    bar.appendChild(b);
+  });
+}
+(function(){
+  var _hmgPrev=hydrateMemberGrid;
+  hydrateMemberGrid=async function(){
+    if(_whoDayBusy)return;
+    _whoDayBusy=true;renderWhoDays();
+    try{
+      if(WHO_DAY_AUTO&&sb){ // 오늘 비었으면 회원 있는 최근 날로
+        for(var n=0;n<3;n++){var l=null;try{l=await loadMemberList(n)}catch(e){break}if(l&&l.length){WHO_DAY=n;break}}
+      }
+      var box=document.getElementById('timeChips');
+      var r=await _hmgPrev.apply(this,arguments);
+      var ok=Array.isArray(todayMembers);
+      if(ok){
+        var times=[...new Set(todayMembers.flatMap(function(m){return m.times||[]}))];
+        if(!times.length&&box){ // 회원 없는 날: 고정 시간표 대신 안내
+          box.innerHTML='<p class="noTimes">'+WHO_DAY_NAMES[WHO_DAY]+'은 아직<br>출석 기록이 없어요</p>';classFilter='';refreshMembers(true);
+        }
+        var g=document.getElementById('memberGrid'),np=g&&g.querySelector('.noMembers');
+        if(np)np.innerHTML=WHO_DAY_NAMES[WHO_DAY]+' 출석 기록이 없어요.<br>위에서 다른 날을 고르거나 <b>+ 번호로 직접 추가</b>해주세요.';
+        var st=document.getElementById('rosterStatus');
+        if(st&&!st.classList.contains('bad'))st.textContent=WHO_DAY_NAMES[WHO_DAY]+' '+whoDayLabel(WHO_DAY)+' · '+todayMembers.length+'명';
+      }
+      return r;
+    }finally{_whoDayBusy=false;renderWhoDays()}
+  };
+  var _goPrevDays=go;
+  go=function(id){if(id==='who'||id==='welcome'){WHO_DAY=0;WHO_DAY_AUTO=true}var r=_goPrevDays.apply(this,arguments);if(id==='who')renderWhoDays();return r};
+  // 로드 전 고정 시간표(회원 없는 시간) 지우기
+  var tc=document.getElementById('timeChips');if(tc&&sb)tc.innerHTML='';
+  var css=`
+  #who #whoDays{display:flex;gap:.5vw;margin:0 0 1vh}
+  #who #whoDays .whoDay{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;gap:.1em;padding:.35em .2em;border:.16rem solid #111;border-radius:.6rem;background:#fff;color:#111;box-shadow:.16rem .16rem 0 #111;font-family:inherit;cursor:pointer}
+  #who #whoDays .whoDay b{font-size:clamp(14px,2.3vw,24px);font-weight:900;line-height:1.1}
+  #who #whoDays .whoDay small{font-size:clamp(10px,1.5vw,15px);font-weight:700;opacity:.65;white-space:nowrap}
+  #who #whoDays .whoDay.on{background:var(--navy,#001A4D);color:#fff}
+  #who #whoDays .whoDay.on small{opacity:.85}
+  #who #whoDays .whoDay:disabled:not(.on){opacity:.55}
+  #who #timeChips .noTimes{margin:1vh 0;font-weight:800;font-size:clamp(14px,2vw,20px);line-height:1.4;opacity:.6}
+  @media (max-width:600px){#who #whoDays{gap:3px}#who #whoDays .whoDay{padding:.4em 0}#who #whoDays .whoDay b{font-size:12px;white-space:nowrap;letter-spacing:-.04em}#who #whoDays .whoDay small{display:none}}`;
+  var stl=document.createElement('style');stl.id='whoDaysCss';stl.textContent=css;document.head.appendChild(stl);
+  renderWhoDays();
+})();
 </script></html>
