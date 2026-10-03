@@ -21,12 +21,11 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - uses: android-actions/setup-android@v3
-
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.7'
 
+      # ubuntu-latest 러너에 Android SDK가 이미 깔려 있음(ANDROID_HOME)
       - name: Build APK
         run: gradle -p android assembleRelease -PversionCode=${{ github.run_number }} --no-daemon --stacktrace
 
