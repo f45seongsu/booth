@@ -259,8 +259,8 @@ public class UvcSource implements USBMonitor.OnDeviceConnectListener {
             Size cur = cam.getPreviewSize();
             if (cur != null && cur.width > 0) { width = cur.width; height = cur.height; }
             sink = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 3);
-            sink.setOnImageAvailableListener(r -> {
-                try (Image im = r.acquireLatestImage()) { /* 버림 */ } catch (Exception ignored) {}
+            sink.setOnImageAvailableListener(reader -> {
+                try (Image im = reader.acquireLatestImage()) { /* 버림 */ } catch (Exception ignored) {}
             }, worker);
             cam.setPreviewDisplay(sink.getSurface());
             cam.setFrameCallback(frameCallback, UVCCamera.PIXEL_FORMAT_NV21);
