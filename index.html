@@ -3066,6 +3066,36 @@ buildWhoSplit();
    앱이 주는 /__booth_cam/frame.jpg 를 계속 받아 canvas에 그리고 canvas.captureStream()을 카메라 stream으로 사용.
    미리보기·촬영·메이킹 영상 코드는 그대로. 프레임이 4초 끊기면 track 'ended' → 기존 재연결 로직. */
 var NATIVE_CAM_FPS=30;
+/* 자동 화이트밸런스(2026-10-03): 카메라/조명 탓에 사진이 빨갛게 나와서 프레임마다 색 보정.
+   0.4초마다 64x48로 줄여 R/G/B 평균을 재고(gray-world, 너무 밝거나 어두운 픽셀 제외) 채널별 배율을 구해
+   SVG feColorMatrix(#camWB)로 canvas에 그릴 때 적용 → 미리보기·촬영·움직이는 네컷 모두 같은 색.
+   STRENGTH 1=완전 보정(피부가 창백해질 수 있음), 0=끔. ?nowb 로 끔. */
+var CAM_WB={on:!/[?&]nowb\b/.test(location.search),strength:0.7,r:1,g:1,b:1,last:0,sc:null,sx:null};
+function camWBFilter(){
+  var f=document.getElementById('camWBm');if(f)return f;
+  var d=document.createElement('div');d.style.cssText='position:absolute;width:0;height:0;overflow:hidden';
+  d.innerHTML='<svg width="0" height="0"><filter id="camWB" color-interpolation-filters="sRGB"><feColorMatrix id="camWBm" type="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 1 0"/></filter></svg>';
+  document.body.appendChild(d);return document.getElementById('camWBm');
+}
+function camAutoWB(src){
+  if(!CAM_WB.on)return;
+  var now=performance.now();if(now-CAM_WB.last<400)return;CAM_WB.last=now;
+  try{
+    if(!CAM_WB.sc){CAM_WB.sc=document.createElement('canvas');CAM_WB.sc.width=64;CAM_WB.sc.height=48;CAM_WB.sx=CAM_WB.sc.getContext('2d',{willReadFrequently:true})}
+    CAM_WB.sx.drawImage(src,0,0,64,48);
+    var d=CAM_WB.sx.getImageData(0,0,64,48).data,R=0,G=0,B=0,n=0;
+    for(var i=0;i<d.length;i+=4){var r=d[i],g=d[i+1],b=d[i+2],mx=Math.max(r,g,b),mn=Math.min(r,g,b);
+      if(mx>245||mn<14)continue;R+=r;G+=g;B+=b;n++}
+    if(n<200)return;
+    R/=n;G/=n;B/=n;var gray=(R+G+B)/3,k=CAM_WB.strength,cl=function(v){return Math.max(0.72,Math.min(1.4,v))};
+    var gr=cl(Math.pow(gray/R,k)),gg=cl(Math.pow(gray/G,k)),gb=cl(Math.pow(gray/B,k));
+    var L0=0.299*R+0.587*G+0.114*B,L1=0.299*R*gr+0.587*G*gg+0.114*B*gb,s=L0/L1; // 밝기는 그대로
+    gr*=s;gg*=s;gb*=s;
+    var a=CAM_WB.r===1&&CAM_WB.g===1&&CAM_WB.b===1?1:0.35; // 부드럽게 변하도록
+    CAM_WB.r+=(gr-CAM_WB.r)*a;CAM_WB.g+=(gg-CAM_WB.g)*a;CAM_WB.b+=(gb-CAM_WB.b)*a;
+    camWBFilter().setAttribute('values',CAM_WB.r.toFixed(3)+' 0 0 0 0 0 '+CAM_WB.g.toFixed(3)+' 0 0 0 0 0 '+CAM_WB.b.toFixed(3)+' 0 0 0 0 0 1 0');
+  }catch(e){CAM_WB.on=false;console.warn('[booth] auto WB off',e)}
+}
 function nativeCamAvailable(){try{return !!(window.BoothNative&&typeof BoothNative.camStatus==='function')}catch(e){return false}}
 function nativeCamStatus(){try{return JSON.parse(BoothNative.camStatus())||{}}catch(e){return {}}}
 async function openNativeCamera(){
@@ -3093,6 +3123,7 @@ async function openNativeCamera(){
         var bm=await grab();
         if(bm){
           if(c.width!==bm.width||c.height!==bm.height){c.width=bm.width;c.height=bm.height}
+          camAutoWB(bm);x.filter=CAM_WB.on?'url(#camWB)':'none';
           x.drawImage(bm,0,0);bm.close&&bm.close();lastOk=Date.now();
         }
       }catch(e){await sleep(200)}
@@ -3219,4 +3250,61 @@ composeFinal=async function(){
   }`;
   var st=document.createElement('style');st.id='portraitPolishCss';st.textContent=css;document.head.appendChild(st);
 }catch(e){console.warn('portrait polish',e)} })();
+
+/* ===== 인화 화면(making) 다시 꾸미기 (2026-10-03) =====
+   기존 필름 박스(제목이 그림과 겹치고 단계가 화면 밖으로 밀림) 대신
+   실제 완성 사진(renderComposite, WYSIWYG)이 프린터 슬롯에서 천천히 인화돼 나오는 연출 + 단계 목록 컴팩트하게 */
+(function(){ try{
+  var css=`
+  #making{display:flex!important;flex-direction:column;overflow:hidden}
+  #making .top h1{font-size:clamp(34px,min(7.5vw,6vh),84px)!important;line-height:.95!important}
+  #making .makingWrap{flex:1 1 auto;min-height:0;height:auto!important;width:auto!important;max-width:none!important;display:flex!important;flex-direction:column;align-items:center;justify-content:center;gap:2.6vh;margin:0 auto!important;padding:0 5vw 3vh!important}
+  #making.hasPrinter .film{display:none!important}
+  #making .printer{--ph:min(46vh,100vw);display:flex;flex-direction:column;align-items:center;flex:0 0 auto}
+  #making .printer .slot{position:relative;z-index:2;width:calc(var(--ph)*.667 + 9vw);height:max(16px,2.2vh);background:#0a1230;border:.22rem solid #fff;border-radius:999px;box-shadow:0 .35rem 0 var(--red,#E31B23)}
+  #making .printer .slot:after{content:"";position:absolute;right:1.1em;top:50%;width:.55em;height:.55em;margin-top:-.275em;border-radius:50%;background:#3dff7a;box-shadow:0 0 8px #3dff7a;animation:printLed .9s steps(1) infinite}
+  #making .printer.done .slot:after{animation:none}
+  #making .printer .paperWin{overflow:hidden;margin-top:-1.1vh;padding:0 16px 18px}
+  #making .printer .paper{position:relative;height:var(--ph);aspect-ratio:2/3;background:#fff;box-shadow:.45rem .45rem 0 #000;transform:translateY(-101%)}
+  #making .printer.go .paper{animation:printOut 4.2s cubic-bezier(.25,.6,.3,1) forwards}
+  #making .printer .paper canvas{display:block;width:100%;height:100%;filter:saturate(.25) brightness(1.18) contrast(.85);animation:printDevelop 5.5s ease-out forwards;animation-play-state:paused}
+  #making .printer.go .paper canvas{animation-play-state:running}
+  #making .printer .paper:after{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,.55) 50%,transparent 65%);background-size:250% 100%;background-position:150% 0;pointer-events:none}
+  #making .printer.done .paper:after{animation:printShine 1.4s ease-out}
+  #making .printer .cap{margin:.4vh 0 0;font-weight:800;font-size:clamp(15px,2.3vw,22px);color:rgba(255,255,255,.85)}
+  #making .makingSteps{width:min(84vw,600px)!important;margin:0!important;gap:1.1vh!important}
+  #making .makingSteps li{font-size:clamp(15px,2.3vw,23px)!important;padding:.65rem 1.1rem!important}
+  #making .makingSteps li i{width:1.8rem!important;height:1.8rem!important}
+  @keyframes printOut{to{transform:translateY(0)}}
+  @keyframes printDevelop{to{filter:none}}
+  @keyframes printShine{from{background-position:150% 0}to{background-position:-50% 0}}
+  @keyframes printLed{50%{opacity:.25}}
+  @media (max-width:600px){
+    #making .printer{--ph:min(38vh,86vw)}
+    #making .makingSteps li{font-size:14px!important;padding:.5rem .8rem!important}
+  }
+  @media (orientation:landscape) and (min-width:601px){
+    #making .makingWrap{flex-direction:row;gap:5vw}
+    #making .printer{--ph:min(58vh,40vw)}
+  }`;
+  var st=document.createElement('style');st.id='makingPrinterCss';st.textContent=css;document.head.appendChild(st);
+  var _startMakingOrig=startMaking;
+  startMaking=async function(){
+    var sec=document.getElementById('making'),wrap=sec&&sec.querySelector('.makingWrap');
+    try{
+      if(wrap&&typeof renderComposite==='function'){
+        var old=wrap.querySelector('.printer');if(old)old.remove();
+        var pr=document.createElement('div');pr.className='printer';
+        pr.innerHTML='<div class="slot"></div><div class="paperWin"><div class="paper"></div></div><p class="cap">사진을 인화하고 있어요</p>';
+        var c=document.createElement('canvas');c.width=600;c.height=900;
+        await renderComposite(c.getContext('2d'),c.width,c.height,true);
+        pr.querySelector('.paper').appendChild(c);
+        wrap.insertBefore(pr,wrap.firstChild);sec.classList.add('hasPrinter');
+        requestAnimationFrame(function(){pr.classList.add('go')});
+        setTimeout(function(){pr.classList.add('done')},4400);
+      }
+    }catch(e){console.warn('making printer',e);if(sec)sec.classList.remove('hasPrinter')}
+    return _startMakingOrig.apply(this,arguments);
+  };
+}catch(e){console.warn('making printer css',e)} })();
 </script></html>

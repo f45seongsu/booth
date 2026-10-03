@@ -135,6 +135,9 @@ class UvcControls {
                 if (k.toggle) set(k, v); else set(k, Math.max(k.min, Math.min(k.max, v)));
             }
         }
+        // 직접 저장한 값이 없으면 자동 화이트밸런스는 항상 켜기 (카메라에 수동 WB가 남아 있으면 사진이 빨갛게 나옴)
+        Ctl wb = find("wbauto");
+        if (wb != null && wb.ok && !p.contains("uvc_wbauto") && !isOn(wb)) set(wb, 1);
     }
 
     void resetDefaults(SharedPreferences p) {
