@@ -3073,6 +3073,20 @@ var NATIVE_CAM_FPS=30;
 var CAM_WB={on:!/[?&]nowb\b/.test(location.search),strength:0.7,r:1,g:1,b:1,last:0,sc:null,sx:null};
 /* 촬영 화질(2026-10-04): 셔터 때 video(captureStream → 색 정보 4:2:0로 줄어듦) 대신
    앱이 준 원본 카메라 프레임을 직접 사용. 최근 프레임 4장을 들고 있다가 가장 선명한 것(라플라시안 분산, 가운데 영역)을 고름 */
+/* 카메라 옆으로 눕혀 달기(2026-10-04): 세로 네컷 칸은 가로 화면의 양옆을 많이 잘라냄 →
+   카메라를 90도 돌려 달면 세로로 꽉 차서 훨씬 넓게 찍힘. ?rot=90 또는 ?rot=-90 (한 번 열면 기억), ?rot=0 원래대로 */
+var CAM_ROT=(function(){var q=new URLSearchParams(location.search).get('rot');
+  if(q!==null){try{localStorage.setItem('boothCamRot',q)}catch(e){}}else{try{q=localStorage.getItem('boothCamRot')}catch(e){}}
+  var r=parseInt(q||'0',10);return r===90||r===-90||r===270||r===180?(r===270?-90:r):0})();
+function camRotDims(bm){return CAM_ROT===90||CAM_ROT===-90?[bm.height,bm.width]:[bm.width,bm.height]}
+function drawCamRot(x,bm){
+  if(!CAM_ROT){x.drawImage(bm,0,0);return}
+  x.save();
+  if(CAM_ROT===90){x.translate(bm.height,0);x.rotate(Math.PI/2)}
+  else if(CAM_ROT===-90){x.translate(0,bm.width);x.rotate(-Math.PI/2)}
+  else{x.translate(bm.width,bm.height);x.rotate(Math.PI)}
+  x.drawImage(bm,0,0);x.restore();
+}
 var NATIVE_RING=[],NATIVE_RING_MAX=4,_sharpC=null,_sharpX=null;
 function frameSharpness(bm){
   try{
@@ -3093,8 +3107,8 @@ function nativeBestShot(){
   if(!cand.length)return null;
   var best=cand.reduce(function(a,b){return b.s>a.s?b:a});
   var c=document.getElementById('captureCanvas')||document.createElement('canvas'),bm=best.bm;
-  c.width=bm.width;c.height=bm.height;var x=c.getContext('2d');
-  x.save();x.translate(bm.width,0);x.scale(-1,1);x.filter=CAM_WB.on?'url(#camWB)':'none';x.drawImage(bm,0,0);x.restore();
+  var dd=camRotDims(bm);c.width=dd[0];c.height=dd[1];var x=c.getContext('2d');
+  x.save();x.translate(dd[0],0);x.scale(-1,1);x.filter=CAM_WB.on?'url(#camWB)':'none';drawCamRot(x,bm);x.restore();
   return c.toDataURL('image/jpeg',.95);
 }
 function camWBFilter(){
@@ -3139,8 +3153,8 @@ async function openNativeCamera(){
   }
   var first=null;for(var i=0;i<20&&!first;i++){try{first=await grab()}catch(e){await sleep(150)}}
   if(!first)throw new Error('native camera: no frame');
-  var c=document.createElement('canvas');c.width=first.width;c.height=first.height;
-  var x=c.getContext('2d');x.drawImage(first,0,0);first.close&&first.close();
+  var c=document.createElement('canvas'),fd=camRotDims(first);c.width=fd[0];c.height=fd[1];
+  var x=c.getContext('2d');drawCamRot(x,first);first.close&&first.close();
   var ms=c.captureStream(NATIVE_CAM_FPS),tr=ms.getVideoTracks()[0],alive=true,lastOk=Date.now();
   var _stop=tr.stop.bind(tr);tr.stop=function(){alive=false;NATIVE_RING.splice(0).forEach(function(o){try{o.bm.close()}catch(e){}});_stop()};
   (async function pump(){
@@ -3148,9 +3162,9 @@ async function openNativeCamera(){
       try{
         var bm=await grab();
         if(bm){
-          if(c.width!==bm.width||c.height!==bm.height){c.width=bm.width;c.height=bm.height}
+          var bd=camRotDims(bm);if(c.width!==bd[0]||c.height!==bd[1]){c.width=bd[0];c.height=bd[1]}
           camAutoWB(bm);x.filter=CAM_WB.on?'url(#camWB)':'none';
-          x.drawImage(bm,0,0);nativeRingPush(bm);lastOk=Date.now();
+          drawCamRot(x,bm);nativeRingPush(bm);lastOk=Date.now();
         }
       }catch(e){await sleep(200)}
       if(alive&&Date.now()-lastOk>4000){
